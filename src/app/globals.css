@@ -1602,3 +1602,67 @@ footer.compact-footer {
   .compact-footer .creator-footer { gap: 6px; }
   .compact-footer .creator-social { width: 28px; }
 }
+
+/* One explanation, one country, one action. */
+.simple-landing {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 38px 0 48px;
+}
+.simple-landing .intro {
+  padding: 0 0 28px;
+  text-align: center;
+}
+.simple-landing .intro h1 {
+  font-size: clamp(36px, 6vw, 52px);
+  letter-spacing: -1.8px;
+  margin: 0 0 18px;
+  max-width: none;
+}
+.simple-landing .intro h1 br { display: block; }
+.simple-landing .intro p {
+  font-size: 16px;
+  max-width: none;
+  line-height: 1.6;
+}
+.simple-setup {
+  display: flex;
+  min-height: 0;
+  padding: 24px;
+}
+.simple-country {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.simple-country-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.simple-country-row .flag { margin: 0; font-size: 32px; }
+.simple-country-row select {
+  min-width: 0;
+  width: 100%;
+  min-height: 52px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.simple-setup .surprise-button {
+  align-self: flex-start;
+  margin-top: 8px;
+  font-size: 14px;
+  min-height: 44px;
+}
+.simple-setup .start-button { margin-top: 12px; }
+.active-board > .paper { border-radius: 16px 16px 0 0; }
+@media (max-width: 700px) {
+  .simple-landing { padding: 30px 0 32px; }
+  .simple-landing .intro p { font-size: 14px; }
+  .simple-setup { padding: 20px; }
+}

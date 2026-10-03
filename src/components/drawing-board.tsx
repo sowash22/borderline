@@ -74,7 +74,7 @@ export default function DrawingBoard({
       )}
       {active && strokes.length === 0 && (
         <div className="draw-hint">
-          Draw the outline here. You’ve got this. Probably.
+          Draw the outline here.
         </div>
       )}
       <svg

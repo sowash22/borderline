@@ -1,6 +1,6 @@
 # Borderline
 
-A mobile-friendly geography drawing game built with Next.js App Router, React, and TypeScript. Pick a country, draw its outline in 30 or 60 seconds, then compare your drawing with the real map.
+A mobile-friendly geography drawing game built with Next.js App Router, React, and TypeScript. Pick a country, draw its outline in 45 seconds, then compare your drawing with the real map.
 
 ## Run locally
 

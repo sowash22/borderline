@@ -7,7 +7,7 @@ Checked on October 3, 2026.
 - TypeScript: `npm run typecheck`.
 - Production compilation and static page generation: `npm run build`.
 - Three scoring tests: empty/tiny marks, translation and scale invariance, missing edge and aspect-ratio penalties.
-- DOM interaction checks using the real React components: friend challenge URL loading, 60-second selection, pointer drawing, undo, reveal, local personal-best persistence, empty-round handling, replay, country changes, daily mode, and automatic timer expiry while a stroke is in progress.
+- DOM interaction checks using the real React components: simplified landing page, friend challenge URL loading, fixed 45-second rounds, pointer drawing, undo, reveal, 45-second personal-best persistence, 45-second sharing, touch-scroll prevention and cleanup, empty-round handling, replay, country changes, and automatic timer expiry while a stroke is in progress.
 
 ## Pending browser verification
 
