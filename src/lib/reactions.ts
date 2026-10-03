@@ -1,0 +1,137 @@
+export type Reaction = { title: string; line: string; emoji: string };
+
+// Ten responses per score band. Keep the joke on the drawing, never the artist.
+const groups: { min: number; emoji: string; entries: [string, string][] }[] = [
+  { min: 0, emoji: "🪄", entries: [
+    ["A new country just dropped.", "You drew it. Now we just need to find it."],
+    ["Geography, freestyle edition.", "The map said left. Your pencil said adventure."],
+    ["Some assembly required.", "The borders are here. Their meeting point is still pending."],
+    ["An undiscovered destination.", "Pack your imagination. The atlas has no directions."],
+    ["The country is in disguise.", "Excellent costume. We almost didn't recognize the continent."],
+    ["A very secret map.", "Even the map doesn't know where it is."],
+    ["Your pencil went exploring.", "It came back with a country of its own."],
+    ["Geography took a coffee break.", "Creativity kindly covered the shift."],
+    ["A bold new border policy.", "Every line gets to go wherever it wants."],
+    ["A map from another universe.", "Somewhere, this is impressively accurate."],
+  ]},
+  { min: 10, emoji: "🛸", entries: [
+    ["The borders took the scenic route.", "They'll get there. They're just enjoying the view."],
+    ["Country-ish. Definitely country-ish.", "A promising member of the shape family."],
+    ["An atlas with plot twists.", "We did not see that coastline coming."],
+    ["The map has entered dream mode.", "All roads lead to somewhere unexpected."],
+    ["A country with extra personality.", "The real one wishes it had that much confidence."],
+    ["The coastline is improvising.", "No rehearsal. Just a very enthusiastic first take."],
+    ["A geographical remix.", "Same inspiration. A completely different beat."],
+    ["The borders are on vacation.", "They sent a postcard. It looks like this."],
+    ["A surprise for the atlas.", "It opened the page and said, 'Oh! New furniture.'"],
+    ["The country tried a new hairstyle.", "A little wild around the edges. We support it."],
+  ]},
+  { min: 20, emoji: "🎨", entries: [
+    ["The idea has landed.", "The borders are still looking for parking."],
+    ["A rough draft of Earth.", "The planet appreciates being included in your art project."],
+    ["We can see the family resemblance.", "Possibly a cousin. From very far away."],
+    ["The outline has big dreams.", "Its first goal is to meet the real outline."],
+    ["A country in comfy clothes.", "Less fitted than the original. Very relaxed."],
+    ["The map is warming up.", "A few stretches, then back to the geography."],
+    ["Your pencil has a theory.", "The coastline would like to discuss the details."],
+    ["A few borders wandered off.", "They promised to be home before the next drawing."],
+    ["The geography is peeking through.", "Like a country playing hide-and-seek behind a doodle."],
+    ["An enthusiastic interpretation.", "The country was invited. Creativity brought extra guests."],
+  ]},
+  { min: 30, emoji: "🧩", entries: [
+    ["The country is coming into focus.", "Some borders are still adjusting their glasses."],
+    ["We've got the opening chapter.", "The coastline is working on the ending."],
+    ["A map with a few side quests.", "The main story is in there somewhere."],
+    ["The borders are finding their feet.", "A few are wearing shoes on the wrong sides."],
+    ["The outline is introducing itself.", "It says it knows the country. They go way back."],
+    ["A promising geographical doodle.", "A little less doodle next time, a little more geography."],
+    ["The country has been spotted.", "It seems to be traveling with some mystery corners."],
+    ["A few pieces clicked.", "The rest of the puzzle is enjoying the table."],
+    ["The pencil found the neighborhood.", "Now it just needs the right address."],
+    ["The resemblance is waking up.", "Give it a minute. It hasn't had breakfast."],
+  ]},
+  { min: 40, emoji: "🧐", entries: [
+    ["The vibes are geographic.", "We see the country. We also see a few creative decisions."],
+    ["A recognizable little adventure.", "The outline got distracted, but it remembered the destination."],
+    ["The country waved back.", "It recognizes you. It has questions about its elbows."],
+    ["Half map, half jazz.", "The borders know the tune. A few notes are improvised."],
+    ["The coastline has opinions.", "Mostly about those unexpected corners."],
+    ["A map with artistic license.", "Your pencil renewed it for another year."],
+    ["The country made an appearance.", "It brought a few borders from its imagination."],
+    ["The outline is getting acquainted.", "It and the real map have some things in common."],
+    ["The map passed the squint test.", "A little squinting is a respected cartographic technique. Probably."],
+    ["The country is almost in character.", "A few coastlines are still learning their lines."],
+  ]},
+  { min: 50, emoji: "🙂", entries: [
+    ["Now we're on the map.", "A few roads may lead to creative places."],
+    ["The country looks familiar.", "Like seeing an old friend with a new haircut."],
+    ["A solid start to an atlas.", "We'll pencil in the remaining details. Literally."],
+    ["The borders are mostly cooperating.", "A few have requested flexible working arrangements."],
+    ["The geography is showing up.", "Some coastlines arrived fashionably late."],
+    ["Your memory brought a map.", "It may have folded it a little differently."],
+    ["A country with minor renovations.", "A new corner here. A bigger coastline there."],
+    ["The outline found its rhythm.", "A couple of borders are dancing to their own song."],
+    ["The map is making friends.", "The real outline says they'd happily hang out."],
+    ["Quite the geographical sketch.", "A few corners still have their training wheels on."],
+  ]},
+  { min: 60, emoji: "😎", entries: [
+    ["Geography has entered the chat.", "A few borders took a detour. The country survived."],
+    ["The atlas gave a little nod.", "Not a standing ovation yet. A very approving nod."],
+    ["Your pencil knows the way.", "It only stopped for a couple of souvenirs."],
+    ["A pretty convincing country.", "The coastline just wants a tiny touch-up."],
+    ["The map would answer to this.", "It might politely correct one or two corners."],
+    ["A well-traveled pencil.", "Clearly, it remembered more than the gift shop."],
+    ["The borders are almost neighbors.", "They could wave to the real ones from here."],
+    ["A lovely little map.", "The geography is there. The edges are having fun."],
+    ["Your memory packed the essentials.", "A couple of coastlines didn't fit in the suitcase."],
+    ["The country looks right at home.", "It might rearrange a few corners after moving in."],
+  ]},
+  { min: 70, emoji: "🌟", entries: [
+    ["That's a country, all right.", "A few tiny wiggles. A lot of good geography."],
+    ["The atlas is smiling.", "You even remembered most of its favorite corners."],
+    ["The pencil understood the assignment.", "It added a little signature flair at the edges."],
+    ["The borders showed up on time.", "Most even remembered where they were supposed to stand."],
+    ["Your memory deserves a postcard.", "Address it to 'Surprisingly good at maps.'"],
+    ["A proper little masterpiece.", "The coastline is asking whether you take commissions."],
+    ["A very familiar silhouette.", "The country could use this as its profile picture."],
+    ["The map gave you a thumbs-up.", "Metaphorically. Countries have very complicated thumbs."],
+    ["Nicely drawn, nicely remembered.", "Your pencil and your memory make a good team."],
+    ["The outline brought its A-game.", "A few borders brought their cheerful B-plus game."],
+  ]},
+  { min: 80, emoji: "👏", entries: [
+    ["The cartographers are impressed.", "One of them just scooted over to make room."],
+    ["That's some excellent remembering.", "Your pencil apparently keeps a little atlas in its pocket."],
+    ["A map worth putting on the fridge.", "Please leave room for the toddler's masterpiece too."],
+    ["The country did a double take.", "It thought it was looking in the mirror."],
+    ["Your borders mean business.", "The business is geography. Business is good."],
+    ["The atlas wants your autograph.", "Sign near the coast. Carefully."],
+    ["You and the map are clearly friends.", "You remembered almost all its little quirks."],
+    ["A tiny geography victory.", "A big round of applause for your pencil."],
+    ["The coastline feels seen.", "It appreciates you remembering all those fiddly bits."],
+    ["That pencil deserves a holiday.", "It has clearly been working on its geography."],
+  ]},
+  { min: 90, emoji: "🏆", entries: [
+    ["Suspiciously good.", "Be honest. Is there an atlas just off-screen?"],
+    ["Did the country draw itself?", "Because that resemblance is doing a lot of explaining."],
+    ["Your pencil might be a cartographer.", "Check its pockets for a tiny compass."],
+    ["The atlas has competition.", "It's updating its résumé as we speak."],
+    ["The map found its twin.", "They'd like matching frames, please."],
+    ["That's fridge-hall-of-fame material.", "Right next to the very proud toddler artwork."],
+    ["The borders are practically posing.", "They knew this was going to be a good portrait."],
+    ["A little geography wizardry.", "Your pencil is requesting a cape."],
+    ["The country approves this portrait.", "It's already picking a spot to hang it."],
+    ["You remembered the whole vibe.", "And an impressive number of actual borders."],
+  ]},
+];
+
+export const revealResponses = groups.flatMap((group) => group.entries.map(([title, line]) => ({
+  min: group.min, title, line, emoji: group.emoji,
+})));
+
+export function verdict(score: number, empty: boolean, variant = 0): Reaction {
+  if (empty) return { title: "An invisible country.", line: "The blank canvas is ready whenever you are. Give it a little country!", emoji: "👻" };
+  const band = Math.min(9, Math.max(0, Math.floor((Number.isFinite(score) ? score : 0) / 10)));
+  const index = Math.abs(Math.trunc(Number.isFinite(variant) ? variant : 0)) % 10;
+  const { min: _, ...reaction } = revealResponses[band * 10 + index];
+  return reaction;
+}

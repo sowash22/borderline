@@ -4,8 +4,9 @@ export async function resultImage(
   country: { name: string; path: string },
   strokes: Stroke[],
   score: number,
+  reactionIndex = 0,
 ): Promise<Blob> {
-  const { title } = verdict(score, !strokes.length);
+  const { title } = verdict(score, !strokes.length, reactionIndex);
   const escape = (text: string) =>
     text.replace(
       /[&<>"']/g,

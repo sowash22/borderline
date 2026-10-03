@@ -49,6 +49,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [country, setCountry] = useState(() => maps.find((map) => map.id === initialCountryId) ?? defaultMap);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [score, setScore] = useState(0);
+  const [reactionIndex, setReactionIndex] = useState(0);
   const [bests, setBests] = useState<Bests>({});
   const [newBest, setNewBest] = useState(false);
   const [toast, setToast] = useState("");
@@ -60,7 +61,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const recent = useRef<string[]>([]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const best = bests[country.id] ?? 0;
-  const judgement = verdict(score, !strokes.length);
+  const judgement = verdict(score, !strokes.length, reactionIndex);
 
   useEffect(() => {
     try {
@@ -104,6 +105,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     );
     const result = shapeScore(drawing, reference);
     setScore(result);
+    setReactionIndex(Math.floor(Math.random() * 10));
     setStrokes(drawing);
     setPhase("result");
     const key = country.id;
@@ -151,7 +153,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const save = async () => {
     setBusy(true);
     try {
-      const blob = await resultImage(country, strokes, score);
+      const blob = await resultImage(country, strokes, score, reactionIndex);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -172,7 +174,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     const text = `I drew ${country.name} and got ${score}% shape match on Borderline. Can you beat that?`;
     try {
       if (navigator.share) {
-        const blob = await resultImage(country, strokes, score);
+        const blob = await resultImage(country, strokes, score, reactionIndex);
         const file = new File([blob], "borderline.png", { type: "image/png" });
         if (navigator.canShare?.({ files: [file] }))
           await navigator.share({

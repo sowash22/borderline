@@ -83,37 +83,4 @@ export function strokePath(stroke: Stroke): string {
     .join(" ");
 }
 
-export function verdict(
-  score: number,
-  empty: boolean,
-): { title: string; line: string; emoji: string } {
-  if (empty)
-    return {
-      title: "An invisible country.",
-      line: "Bold choice. The cartographers are speechless.",
-      emoji: "👻",
-    };
-  if (score >= 85)
-    return {
-      title: "Suspiciously good.",
-      line: "Be honest. Is there an atlas just off-screen?",
-      emoji: "🏆",
-    };
-  if (score >= 65)
-    return {
-      title: "Geography has entered the chat.",
-      line: "A few borders took a detour. The country survived.",
-      emoji: "😎",
-    };
-  if (score >= 40)
-    return {
-      title: "The vibes are geographic.",
-      line: "We see the vision. The borders have some questions.",
-      emoji: "🧐",
-    };
-  return {
-    title: "A new country just dropped.",
-    line: "The UN will need a minute to process this one.",
-    emoji: "🫠",
-  };
-}
+export { verdict } from "./reactions";
