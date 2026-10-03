@@ -615,7 +615,7 @@ h1 {
   pointer-events: none;
 }
 .drawing-toolbar {
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1212,7 +1212,7 @@ footer > span:first-child {
   .drawing-toolbar {
     padding: 10px 9px;
     gap: 7px;
-    border-radius: 0 0 16px 16px;
+    border-radius: 16px 16px 0 0;
   }
   .drawing-toolbar > div {
     gap: 2px;
@@ -1668,7 +1668,7 @@ footer.compact-footer {
   line-height: 1.6;
   text-align: center;
 }
-.active-board > .paper { border-radius: 16px 16px 0 0; }
+.active-board > .paper { border-radius: 0 0 16px 16px; }
 @media (max-width: 700px) {
   .simple-landing { padding: 30px 0 32px; }
   .simple-landing .intro p { font-size: 14px; }

@@ -305,15 +305,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               <div style={{ width: `${(remaining / seconds) * 100}%` }} />
             </div>
             <div className="board-card active-board">
-              <DrawingBoard
-                strokes={strokes}
-                onChange={changeInk}
-                onPreview={(value) => {
-                  ink.current = value;
-                }}
-                active
-                acceptInput={acceptInput}
-              />
               <div className="drawing-toolbar">
                 <div>
                   <button
@@ -335,6 +326,15 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <IconLabel icon={Check}>Reveal my map</IconLabel>
                 </button>
               </div>
+              <DrawingBoard
+                strokes={strokes}
+                onChange={changeInk}
+                onPreview={(value) => {
+                  ink.current = value;
+                }}
+                active
+                acceptInput={acceptInput}
+              />
             </div>
             <p className="playing-note">
               {country.scope ? "Draw the contiguous 48 states with your finger, mouse, or stylus." : "Draw with your finger, mouse, or stylus."}
