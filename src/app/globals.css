@@ -1536,3 +1536,36 @@ footer {
     aspect-ratio: auto;
   }
 }
+
+.creator-footer {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+.creator-name {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  padding: 10px 0;
+}
+.creator-name span { color: var(--purple); }
+.creator-name:hover { text-decoration: underline; }
+.creator-separator { color: #c5c3d0; user-select: none; }
+.creator-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color .15s, background .15s;
+}
+.creator-social:hover { color: var(--purple); background: #eee9ff; }
+.creator-social[title="LinkedIn"]:hover { color: #0077b5; }

@@ -7,6 +7,7 @@ import {
   Download,
   Globe2,
   HelpCircle,
+  Linkedin,
   Pencil,
   RotateCcw,
   Share2,
@@ -670,6 +671,19 @@ export default function Game() {
             Natural Earth
           </a>
         </span>
+        <nav className="creator-footer" aria-label="About the creator">
+          <a className="creator-name" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer">
+            Ashok <span>Marannan</span>
+          </a>
+          <span className="creator-separator" aria-hidden="true">•</span>
+          <a className="creator-social" href="https://www.linkedin.com/in/ashokmarannan/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan on LinkedIn" title="LinkedIn">
+            <Linkedin size={20} aria-hidden="true" />
+          </a>
+          <span className="creator-separator" aria-hidden="true">•</span>
+          <a className="creator-social" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan’s website" title="Website">
+            <Globe2 size={20} aria-hidden="true" />
+          </a>
+        </nav>
       </footer>
       <div className="toast" role="status" aria-live="polite">
         {toast && <span>{toast}</span>}
