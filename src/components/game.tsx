@@ -64,7 +64,6 @@ export default function Game() {
   const [bests, setBests] = useState<Bests>({});
   const [newBest, setNewBest] = useState(false);
   const [daily, setDaily] = useState(false);
-  const [rounds, setRounds] = useState(0);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const [linkFallback, setLinkFallback] = useState("");
@@ -123,7 +122,6 @@ export default function Game() {
     setScore(result);
     setStrokes(drawing);
     setPhase("result");
-    setRounds((value) => value + 1);
     const key = `${country.id}:${seconds}`;
     setNewBest(result > (bests[key] ?? 0));
     const updated = { ...bests, [key]: Math.max(bests[key] ?? 0, result) };
@@ -654,35 +652,19 @@ export default function Game() {
           </section>
         )}
       </main>
-      <footer>
-        <span>Made for questionable cartographers.</span>
-        <span>
-          {rounds > 0
-            ? `${rounds} ${rounds === 1 ? "country" : "countries"} reimagined this visit`
-            : "18 countries. Infinite creative liberties."}
-        </span>
-        <span>
-          Simplified outlines ·{" "}
-          <a
-            href="https://www.naturalearthdata.com/about/terms-of-use/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Natural Earth
-          </a>
-        </span>
-        <nav className="creator-footer" aria-label="About the creator">
+      <footer className="compact-footer">
+        <nav className="creator-footer" aria-label="Creator and map credits">
           <a className="creator-name" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer">
             Ashok <span>Marannan</span>
           </a>
-          <span className="creator-separator" aria-hidden="true">•</span>
           <a className="creator-social" href="https://www.linkedin.com/in/ashokmarannan/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan on LinkedIn" title="LinkedIn">
-            <Linkedin size={20} aria-hidden="true" />
+            <Linkedin size={18} aria-hidden="true" />
           </a>
-          <span className="creator-separator" aria-hidden="true">•</span>
           <a className="creator-social" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan’s website" title="Website">
-            <Globe2 size={20} aria-hidden="true" />
+            <Globe2 size={18} aria-hidden="true" />
           </a>
+          <span className="creator-separator" aria-hidden="true">·</span>
+          <a className="map-credit" href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer" aria-label="Map outlines from Natural Earth">Natural Earth</a>
         </nav>
       </footer>
       <div className="toast" role="status" aria-live="polite">

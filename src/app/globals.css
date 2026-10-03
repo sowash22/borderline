@@ -1569,3 +1569,25 @@ footer {
 }
 .creator-social:hover { color: var(--purple); background: #eee9ff; }
 .creator-social[title="LinkedIn"]:hover { color: #0077b5; }
+
+/* A single compact row on desktop and phones. */
+footer.compact-footer {
+  padding: 12px 0;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+.compact-footer .creator-footer {
+  flex-basis: auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-top: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.compact-footer .creator-name { padding: 8px 0; }
+.compact-footer .creator-social { width: 32px; height: 36px; flex-shrink: 0; }
+.compact-footer .map-credit { color: var(--muted); }
+@media (max-width: 360px) {
+  .compact-footer .creator-footer { gap: 6px; }
+  .compact-footer .creator-social { width: 28px; }
+}
