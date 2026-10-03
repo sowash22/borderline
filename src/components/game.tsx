@@ -220,8 +220,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         {phase === "setup" && (
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
-              <h1>Draw a country<br />from memory.</h1>
-              <p>Draw its outline at your own pace.<br />Then see how close you got to the real map.</p>
+              <h1>
+                I built this for my two-year-old to draw maps of countries and
+                discover the world. Then I thought: why should kids have all the fun?
+              </h1>
             </div>
             <div className="setup-card simple-setup">
               <label className="simple-country" htmlFor="country">
@@ -244,10 +246,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 <IconLabel icon={Pencil}>Let’s draw</IconLabel>
               </button>
             </div>
-            <p className="origin-note">
-              I built this for my two-year-old to draw and discover countries.
-              Then I thought: why should kids have all the fun?
-            </p>
           </section>
         )}
 
