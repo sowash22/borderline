@@ -1,160 +1,77 @@
 import fs from "node:fs";
 import { feature } from "topojson-client";
-import { geoMercator, geoPath } from "d3-geo";
-const atlas = JSON.parse(
-  fs.readFileSync(
-    new URL("../node_modules/world-atlas/countries-110m.json", import.meta.url),
-  ),
-);
-const features = feature(atlas, atlas.objects.countries).features;
-const picks = [
-  ["380", "Italy", "🇮🇹", "Starter", "The boot. You know the boot."],
-  [
-    "036",
-    "Australia",
-    "🇦🇺",
-    "Starter",
-    "A continent with main-character energy.",
-  ],
-  [
-    "250",
-    "France",
-    "🇫🇷",
-    "Starter",
-    "Somewhere between a hexagon and a croissant.",
-  ],
-  [
-    "356",
-    "India",
-    "🇮🇳",
-    "Medium",
-    "A familiar shape. Until you have to draw it.",
-  ],
-  ["392", "Japan", "🇯🇵", "Spicy", "A few islands. A lot of confidence."],
-  [
-    "076",
-    "Brazil",
-    "🇧🇷",
-    "Medium",
-    "Big country. Bigger room for interpretation.",
-  ],
-  [
-    "818",
-    "Egypt",
-    "🇪🇬",
-    "Starter",
-    "Your time to shine, rectangle enthusiasts.",
-  ],
-  [
-    "276",
-    "Germany",
-    "🇩🇪",
-    "Medium",
-    "Precision is optional. Enthusiasm is not.",
-  ],
-  [
-    "724",
-    "Spain",
-    "🇪🇸",
-    "Starter",
-    "The Iberian Peninsula remembers everything.",
-  ],
-  ["484", "Mexico", "🇲🇽", "Medium", "Do not forget the very long peninsula."],
-  [
-    "826",
-    "United Kingdom",
-    "🇬🇧",
-    "Spicy",
-    "A lot of coastline for a little island.",
-  ],
-  [
-    "710",
-    "South Africa",
-    "🇿🇦",
-    "Medium",
-    "Give the bottom of Africa your best shot.",
-  ],
-  [
-    "032",
-    "Argentina",
-    "🇦🇷",
-    "Medium",
-    "Think long. Then think a little longer.",
-  ],
-  [
-    "554",
-    "New Zealand",
-    "🇳🇿",
-    "Spicy",
-    "Two islands. Zero pressure. Okay, some pressure.",
-  ],
-  ["752", "Sweden", "🇸🇪", "Medium", "Tall country. Short timer."],
-  [
-    "410",
-    "South Korea",
-    "🇰🇷",
-    "Medium",
-    "Small on the globe. Big on the blank page.",
-  ],
-  ["300", "Greece", "🇬🇷", "Spicy", "The coastline has chosen chaos."],
-  [
-    "620",
-    "Portugal",
-    "🇵🇹",
-    "Starter",
-    "Spain’s very stylish next-door neighbor.",
-  ],
-];
-const area = (ring) =>
-  Math.abs(
-    ring.reduce((sum, p, i) => {
-      const q = ring[(i + 1) % ring.length];
-      return sum + p[0] * q[1] - q[0] * p[1];
-    }, 0),
-  );
-const maps = picks.map(([id, name, flag, difficulty, note]) => {
-  const f = features.find((f) => String(f.id).padStart(3, "0") === id);
-  let polygons =
-    f.geometry.type === "Polygon"
-      ? [f.geometry.coordinates]
-      : f.geometry.coordinates;
-  // Keep the largest landmass and substantial islands. Omit distant overseas territories.
-  const largest = polygons.reduce((a, b) => (area(a[0]) > area(b[0]) ? a : b));
-  const center = largest[0].reduce(
-    (s, p) => [
-      s[0] + p[0] / largest[0].length,
-      s[1] + p[1] / largest[0].length,
-    ],
-    [0, 0],
-  );
-  polygons = polygons.filter(
-    (poly) =>
-      area(poly[0]) >= area(largest[0]) * 0.007 &&
-      poly[0].some(
-        (p) =>
-          Math.abs(p[0] - center[0]) < 25 && Math.abs(p[1] - center[1]) < 25,
-      ),
-  );
-  const shape = {
-    type: "Feature",
-    properties: {},
-    geometry: { type: "MultiPolygon", coordinates: polygons },
+import { geoMercator, geoAzimuthalEqualArea, geoPath, geoArea, geoCentroid, geoDistance } from "d3-geo";
+import { iso31661 } from "iso-3166";
+
+// Prefer simple outlines; use more detailed atlases for small countries and islands.
+const byId = new Map();
+const detailedById = new Map();
+const mediumById = new Map();
+for (const detail of ["110m", "50m", "10m"]) {
+  const atlas = JSON.parse(fs.readFileSync(new URL(`../node_modules/world-atlas/countries-${detail}.json`, import.meta.url)));
+  for (const f of feature(atlas, atlas.objects.countries).features) {
+    if (detail === "50m" && f.id) mediumById.set(String(f.id).padStart(3, "0"), f);
+    if (detail === "10m" && f.id) detailedById.set(String(f.id).padStart(3, "0"), f);
+    if (f.id && !byId.has(String(f.id).padStart(3, "0"))) byId.set(String(f.id).padStart(3, "0"), f);
+  }
+}
+const names = new Intl.DisplayNames(["en"], { type: "region" });
+const polygonFeature = (coordinates) => ({ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates } });
+
+// Simplify after projection so every country's detail fits the same drawing surface.
+function simplify(points, tolerance = 0.8) {
+  if (points.length <= 4) return points;
+  const first = points[0], last = points.at(-1);
+  let maximum = 0, index = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i], dx = last[0] - first[0], dy = last[1] - first[1];
+    const t = Math.max(0, Math.min(1, ((p[0] - first[0]) * dx + (p[1] - first[1]) * dy) / (dx * dx + dy * dy || 1)));
+    const distance = Math.hypot(p[0] - first[0] - t * dx, p[1] - first[1] - t * dy);
+    if (distance > maximum) { maximum = distance; index = i; }
+  }
+  return maximum > tolerance
+    ? [...simplify(points.slice(0, index + 1), tolerance).slice(0, -1), ...simplify(points.slice(index), tolerance)]
+    : [first, last];
+}
+const maps = [];
+for (const entry of iso31661) {
+  let f = byId.get(entry.numeric);
+  if (!f) continue;
+  if (geoArea(f) < 0.0025 && mediumById.has(entry.numeric)) f = mediumById.get(entry.numeric);
+  if (geoArea(f) < 0.0001 && detailedById.has(entry.numeric)) f = detailedById.get(entry.numeric);
+  let polygons = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+  const largest = polygons.reduce((a, b) => geoArea(polygonFeature(a)) > geoArea(polygonFeature(b)) ? a : b);
+  const center = geoCentroid(polygonFeature(largest));
+  const largestArea = geoArea(polygonFeature(largest));
+  // Keep the recognizable main outline and nearby islands, rather than distant territories.
+  polygons = entry.alpha2 === "US" ? [largest] : polygons.filter((poly) => poly === largest || (
+    geoArea(polygonFeature(poly)) >= largestArea * 0.001 &&
+    geoDistance(center, geoCentroid(polygonFeature(poly))) < Math.PI / 4
+  ));
+  const shape = { type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: polygons.map(poly => [poly[0]]) } };
+  const projection = entry.alpha2 === "AQ"
+    ? geoAzimuthalEqualArea().rotate([0, 90])
+    : geoMercator().rotate([-center[0], 0]);
+  projection.fitExtent([[65, 40], [535, 360]], shape);
+  // Capture the projected path so rendered borders and score geometry use identical clipping.
+  const projected = []; let current;
+  const context = {
+    moveTo(x, y) { current = [[x, y]]; projected.push(current); },
+    lineTo(x, y) { current.push([x, y]); },
+    closePath() { if (current.length) current.push(current[0]); },
   };
-  const projection = geoMercator().fitExtent(
-    [
-      [65, 40],
-      [535, 360],
-    ],
-    shape,
-  );
-  const path = geoPath(projection).digits(2)(shape);
-  const rings = polygons.map((poly) =>
-    poly[0].map((p) => projection(p).map((n) => Math.round(n * 100) / 100)),
-  );
-  return { id, name, flag, difficulty, note, path, rings };
-});
-fs.writeFileSync(
-  new URL("../src/lib/maps.json", import.meta.url),
-  JSON.stringify(maps),
-);
-console.log(`Built ${maps.length} simplified Natural Earth outlines.`);
+  geoPath(projection).context(context)(shape);
+  const rings = projected.filter(ring => ring.length >= 4).map(ring => {
+    const simple = simplify(ring);
+    return (simple.length >= 4 ? simple : ring).map(([x, y]) => [Math.round(x * 100) / 100, Math.round(y * 100) / 100]);
+  });
+  if (!rings.length || !rings.flat().every(([x, y]) => Number.isFinite(x) && Number.isFinite(y))) throw new Error(`Invalid outline: ${entry.alpha2}`);
+  const path = rings.map(ring => ring.map(([x, y], i) => `${i ? "L" : "M"}${x},${y}`).join("") + "Z").join("");
+  maps.push({ id: entry.numeric, name: names.of(entry.alpha2), code: entry.alpha2,
+    flag: String.fromCodePoint(...Array.from(entry.alpha2, letter => letter.charCodeAt(0) + 127397)),
+    scope: entry.alpha2 === "US" ? "Contiguous United States" : "", path, rings });
+}
+maps.sort((a, b) => a.name.localeCompare(b.name, "en"));
+fs.writeFileSync(new URL("../src/lib/maps.json", import.meta.url), JSON.stringify(maps));
+console.log(`Built ${maps.length} simplified country and territory outlines (${fs.statSync(new URL("../src/lib/maps.json", import.meta.url)).size} bytes).`);
+console.log("Missing from source atlases:", iso31661.filter(entry => !byId.has(entry.numeric)).map(entry => names.of(entry.alpha2)).join(", "));

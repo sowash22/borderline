@@ -19,13 +19,13 @@ npm run build
 
 ## Phase one
 
-- 18 countries with simplified Natural Earth outlines.
+- 238 countries and territories with simplified Natural Earth outlines.
 - Finger, mouse, and stylus drawing; undo and clear.
 - Deadline-based timer that continues when the tab is hidden.
 - Side-by-side reveal and deterministic, playful shape similarity.
-- Daily country challenge, quick replay, and recent-country avoidance.
+- Quick replay and recent-country avoidance.
 - Device-local personal bests, a downloadable PNG, and friend challenge links.
-- Responsive design, reduced motion, keyboard-accessible controls, native help dialog.
+- Responsive design, reduced motion, keyboard-accessible controls.
 - No accounts, databases, API keys, paid AI calls, or public uploads.
 
 Scores use symmetric sampled outline distance with translation and uniform scale normalization. They preserve aspect ratio and orientation. This is a playful heuristic, not a validated geographic accuracy measure. The short verdicts are authored text, not AI-generated.
@@ -38,7 +38,7 @@ Import this repository in Vercel. The framework is Next.js, the build command is
 
 ## Map data
 
-Outlines are generated from `world-atlas` 2.0.2 (`countries-110m.json`), which contains public-domain Natural Earth data. Run `npm run maps` to regenerate the bundled map geometry. Small islands and distant overseas territories are omitted to keep the game playable; France uses its European mainland and nearby islands. Maps are game references, not authoritative boundary records.
+Outlines are generated from `world-atlas` 2.0.2 (110m, 50m, and 10m atlases), which contains public-domain Natural Earth data. Run `npm run maps` to regenerate the bundled map geometry. Small islands and distant overseas territories are omitted to keep the game playable; France uses its European mainland and nearby islands. The US uses the contiguous 48 states, labeled in the game. Country detection uses Vercel’s IP country code; shared country links take priority. Maps are game references, not authoritative boundary records.
 
 Sources: https://github.com/topojson/world-atlas and https://www.naturalearthdata.com/about/terms-of-use/
 

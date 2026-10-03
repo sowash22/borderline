@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/scoring.test.ts",
+    "test": "node --import tsx --test src/lib/*.test.ts",
     "maps": "node scripts/build-maps.mjs"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "d3-geo": "3.1.1",
+    "iso-3166": "^4.4.0",
     "topojson-client": "3.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3",

@@ -29,7 +29,7 @@ import { resultImage } from "@/lib/share";
 type Phase = "setup" | "drawing" | "result";
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v1";
-const defaultMap = maps[0];
+const defaultMap = maps.find((map) => map.code === "IT")!;
 const seconds = 45;
 function IconLabel({
   children,
@@ -333,7 +333,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               </div>
             </div>
             <p className="playing-note">
-              Draw with your finger, mouse, or stylus.
+              {country.scope ? "Draw the contiguous 48 states with your finger, mouse, or stylus." : "Draw with your finger, mouse, or stylus."}
             </p>
           </section>
         )}
@@ -407,7 +407,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   </svg>
                 </div>
                 <div className="map-footer">
-                  {country.flag} {country.name}, geographically.
+                  {country.flag} {country.scope || country.name}, geographically.
                 </div>
               </div>
             </div>
