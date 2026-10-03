@@ -46,9 +46,9 @@ function IconLabel({
   );
 }
 
-export default function Game() {
+export default function Game({ initialCountryId }: { initialCountryId?: string } = {}) {
   const [phase, setPhase] = useState<Phase>("setup");
-  const [country, setCountry] = useState(defaultMap);
+  const [country, setCountry] = useState(() => maps.find((map) => map.id === initialCountryId) ?? defaultMap);
   const [remaining, setRemaining] = useState(seconds);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [score, setScore] = useState(0);
@@ -477,18 +477,13 @@ export default function Game() {
         )}
       </main>
       <footer className="compact-footer">
-        <nav className="creator-footer" aria-label="Creator and map credits">
+        <nav className="creator-footer" aria-label="Creator links">
           <a className="creator-name" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer">
             Ashok <span>Marannan</span>
           </a>
           <a className="creator-social" href="https://www.linkedin.com/in/ashokmarannan/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan on LinkedIn" title="LinkedIn">
             <Linkedin size={18} aria-hidden="true" />
           </a>
-          <a className="creator-social" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan’s website" title="Website">
-            <Globe2 size={18} aria-hidden="true" />
-          </a>
-          <span className="creator-separator" aria-hidden="true">·</span>
-          <a className="map-credit" href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer" aria-label="Map outlines from Natural Earth">Natural Earth</a>
         </nav>
       </footer>
       <div className="toast" role="status" aria-live="polite">
