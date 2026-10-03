@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
-  Clock3,
   Download,
   Globe2,
   Linkedin,
@@ -28,9 +27,8 @@ import { resultImage } from "@/lib/share";
 
 type Phase = "setup" | "drawing" | "result";
 type Bests = Record<string, number>;
-const storageKey = "borderline:bests:v1";
+const storageKey = "borderline:bests:v2";
 const defaultMap = maps.find((map) => map.code === "IT")!;
-const seconds = 45;
 function IconLabel({
   children,
   icon: Icon,
@@ -49,7 +47,6 @@ function IconLabel({
 export default function Game({ initialCountryId }: { initialCountryId?: string } = {}) {
   const [phase, setPhase] = useState<Phase>("setup");
   const [country, setCountry] = useState(() => maps.find((map) => map.id === initialCountryId) ?? defaultMap);
-  const [remaining, setRemaining] = useState(seconds);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [score, setScore] = useState(0);
   const [bests, setBests] = useState<Bests>({});
@@ -58,12 +55,11 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [busy, setBusy] = useState(false);
   const [linkFallback, setLinkFallback] = useState("");
   const [ready, setReady] = useState(false);
-  const deadline = useRef(0),
-    phaseRef = useRef<Phase>("setup"),
+  const phaseRef = useRef<Phase>("setup"),
     ink = useRef<Stroke[]>([]);
   const recent = useRef<string[]>([]);
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const best = bests[`${country.id}:${seconds}`] ?? 0;
+  const best = bests[country.id] ?? 0;
   const judgement = verdict(score, !strokes.length);
 
   useEffect(() => {
@@ -74,7 +70,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           Object.fromEntries(
             Object.entries(saved).filter(
               ([key, value]) =>
-                /^\d{3}:45$/.test(key) &&
+                /^\d{3}$/.test(key) &&
                 typeof value === "number" &&
                 Number.isFinite(value) &&
                 value >= 0 &&
@@ -110,7 +106,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setScore(result);
     setStrokes(drawing);
     setPhase("result");
-    const key = `${country.id}:${seconds}`;
+    const key = country.id;
     setNewBest(result > (bests[key] ?? 0));
     const updated = { ...bests, [key]: Math.max(bests[key] ?? 0, result) };
     setBests(updated);
@@ -119,26 +115,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     } catch {
       /* Best scores are optional. */
     }
-  }, [country, seconds, bests]);
+  }, [country, bests]);
 
-  useEffect(() => {
-    if (phase !== "drawing") return;
-    const tick = () => {
-      const left = Math.max(
-        0,
-        Math.ceil((deadline.current - Date.now()) / 1000),
-      );
-      setRemaining(left);
-      if (left === 0) finish();
-    };
-    tick();
-    const id = setInterval(tick, 100);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [phase, finish]);
   useEffect(() => {
     if (phase === "result") titleRef.current?.focus();
   }, [phase]);
@@ -147,18 +125,9 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     ink.current = value;
     setStrokes(value);
   };
-  const acceptInput = () => {
-    if (phaseRef.current !== "drawing") return false;
-    if (Date.now() >= deadline.current) {
-      finish();
-      return false;
-    }
-    return true;
-  };
+  const acceptInput = () => phaseRef.current === "drawing";
   const start = () => {
     changeInk([]);
-    setRemaining(seconds);
-    deadline.current = Date.now() + seconds * 1000;
     phaseRef.current = "drawing";
     setPhase("drawing");
     setLinkFallback("");
@@ -182,7 +151,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const save = async () => {
     setBusy(true);
     try {
-      const blob = await resultImage(country, strokes, score, seconds);
+      const blob = await resultImage(country, strokes, score);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -200,10 +169,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setBusy(true);
     const url = new URL(location.origin);
     url.searchParams.set("country", country.id);
-    const text = `I drew ${country.name} in ${seconds} seconds and got ${score}% shape match on Borderline. Can you beat that?`;
+    const text = `I drew ${country.name} and got ${score}% shape match on Borderline. Can you beat that?`;
     try {
       if (navigator.share) {
-        const blob = await resultImage(country, strokes, score, seconds);
+        const blob = await resultImage(country, strokes, score);
         const file = new File([blob], "borderline.png", { type: "image/png" });
         if (navigator.canShare?.({ files: [file] }))
           await navigator.share({
@@ -252,7 +221,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
               <h1>Draw a country<br />from memory.</h1>
-              <p>You have 45 seconds to draw its outline.<br />Then see how close you got to the real map.</p>
+              <p>Draw its outline at your own pace.<br />Then see how close you got to the real map.</p>
             </div>
             <div className="setup-card simple-setup">
               <label className="simple-country" htmlFor="country">
@@ -291,18 +260,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <span aria-hidden="true"> {country.flag}</span>
                 </h1>
               </div>
-              <div
-                className={`timer ${remaining <= 5 ? "urgent" : ""}`}
-                role="timer"
-                aria-label={`${remaining} seconds remaining`}
-              >
-                <Clock3 size={24} />
-                <strong>{String(remaining).padStart(2, "0")}</strong>
-                <span>sec</span>
-              </div>
-            </div>
-            <div className="timer-track" aria-hidden="true">
-              <div style={{ width: `${(remaining / seconds) * 100}%` }} />
             </div>
             <div className="board-card active-board">
               <div className="drawing-toolbar">
@@ -358,7 +315,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <span className="map-label purple">
                     <Pencil size={16} /> YOUR MASTERPIECE
                   </span>
-                  <span>{seconds} SEC</span>
                 </div>
                 <div className="result-paper">
                   <svg
@@ -437,7 +393,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                     {newBest ? "New personal best!" : `Personal best: ${best}%`}
                   </strong>
                   <span>
-                    {country.name} · {seconds} seconds
+                    {country.name}
                   </span>
                 </span>
               </div>

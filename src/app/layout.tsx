@@ -3,10 +3,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Borderline — Draw a country. Question your geography.",
   description:
-    "A tiny geography game with a big reality check. Draw a country from memory in 45 seconds, reveal the real map, and challenge a friend.",
+    "A tiny geography game with a big reality check. Draw a country from memory at your own pace, reveal the real map, and challenge a friend.",
   openGraph: {
     title: "Borderline — How bad is your geography?",
-    description: "45 seconds. One country. Absolutely no looking it up.",
+    description: "Draw a country from memory, then compare it with the real map.",
     type: "website",
   },
   twitter: {
