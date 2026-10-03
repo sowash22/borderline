@@ -275,6 +275,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 <IconLabel icon={Pencil}>Let’s draw</IconLabel>
               </button>
             </div>
+            <p className="origin-note">
+              I built this for my two-year-old to draw and discover countries.
+              Then I thought: why should kids have all the fun?
+            </p>
           </section>
         )}
 
