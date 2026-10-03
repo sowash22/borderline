@@ -1,5 +1,5 @@
 "use client";
-import { useRef, type PointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent } from "react";
 import { Pencil } from "lucide-react";
 import { strokePath, type Point, type Stroke } from "@/lib/scoring";
 
@@ -16,10 +16,25 @@ export default function DrawingBoard({
   active: boolean;
   acceptInput: () => boolean;
 }) {
-  const svg = useRef<SVGSVGElement>(null);
+  const paper = useRef<HTMLDivElement>(null);
   const live = useRef<SVGPathElement>(null);
   const ink = useRef<Stroke>([]);
   const pointer = useRef<number | null>(null);
+  useEffect(() => {
+    const surface = paper.current;
+    if (!active || !surface) return;
+    // Native non-passive listeners let mobile browsers cancel page scrolling.
+    // React's delegated touch listeners may be passive, so use the surface itself.
+    const preventScroll = (event: TouchEvent) => {
+      if (event.cancelable) event.preventDefault();
+    };
+    surface.addEventListener("touchstart", preventScroll, { passive: false });
+    surface.addEventListener("touchmove", preventScroll, { passive: false });
+    return () => {
+      surface.removeEventListener("touchstart", preventScroll);
+      surface.removeEventListener("touchmove", preventScroll);
+    };
+  }, [active]);
   const point = (event: PointerEvent<SVGSVGElement>): Point => {
     const bounds = event.currentTarget.getBoundingClientRect();
     return {
@@ -44,7 +59,7 @@ export default function DrawingBoard({
       event.currentTarget.releasePointerCapture(event.pointerId);
   };
   return (
-    <div className={`paper ${active ? "drawing" : ""}`}>
+    <div ref={paper} className={`paper ${active ? "drawing" : ""}`}>
       {!active && (
         <div className="paper-intro">
           <span className="pencil-mark">
@@ -63,7 +78,6 @@ export default function DrawingBoard({
         </div>
       )}
       <svg
-        ref={svg}
         viewBox="0 0 600 400"
         aria-label={
           active
