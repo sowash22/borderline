@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return Response.json({ message: "That score can’t be posted." }, { status: 400 });
   }
   if (!findPlace(countryId)) {
-    return Response.json({ message: "That country can’t be posted." }, { status: 400 });
+    return Response.json({ message: "That drawing can’t be posted." }, { status: 400 });
   }
   try {
     const saved = await saveDailyScore({

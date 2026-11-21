@@ -16,7 +16,7 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { countries, findPlace, otherCountries, popularCountries, usStates } from "@/lib/places";
+import { allPlaces, categories, findPlace, otherCountries, popularCountries, subjectFor } from "@/lib/places";
 import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
 import { ensurePlayerName } from "@/lib/nicknames";
@@ -45,8 +45,8 @@ type SavedMap = {
 };
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v2";
-const defaultMap = countries.find((map) => map.code === "IT")!;
-const places = [...countries, ...usStates];
+const defaultMap = allPlaces.find((map) => map.code === "IT")!;
+const places = allPlaces;
 
 function randomPlace() {
   return places[Math.floor(Math.random() * places.length)] ?? defaultMap;
@@ -74,7 +74,7 @@ function MapCard({
   caption: string;
   open?: boolean;
 }) {
-  const joke = open ? verdict(item.score, !item.strokes?.length, item.reaction) : null;
+  const joke = open ? verdict(item.score, !item.strokes?.length, item.reaction, subjectFor(findPlace(item.countryId))) : null;
   const body = (
     <>
       {joke && (
@@ -261,7 +261,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const keepFeatured = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const best = bests[country.id] ?? 0;
-  const judgement = verdict(score, !strokes.length, reactionIndex);
+  const judgement = verdict(score, !strokes.length, reactionIndex, subjectFor(country));
 
   useEffect(() => {
     try {
@@ -560,7 +560,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             onClick={openArchive}
             disabled={view === "drawing" || !nickname}
           >
-            Your maps
+            Your drawings
           </button>
         </div>
       </header>
@@ -570,12 +570,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
               <h1>
-                I built this for my little one to draw maps. Then I thought: why should kids have all the fun?
+                I built this for my little one to draw. Then I thought: why should kids have all the fun?
               </h1>
             </div>
             <div className="home-stage">
               <div className="setup-card simple-setup">
-                <p className="simple-country">Draw a map</p>
+                <p className="simple-country">Draw this</p>
                 <button
                   type="button"
                   className="day-choice today-choice"
@@ -597,47 +597,40 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <IconLabel icon={Shuffle}>Choose another</IconLabel>
                 </button>
                 <div className="place-picks">
-                  <label className="place-search" htmlFor="country-pick">
-                    Country
-                    <select
-                      id="country-pick"
-                      value={choice === "custom" && countries.some((place) => place.id === customId) ? customId : ""}
-                      onChange={(event) => {
-                        const place = findPlace(event.target.value);
-                        if (!place) return;
-                        router.push(placeHref(place.id));
-                      }}
-                    >
-                      <option value="">Choose a country</option>
-                      <optgroup label="Familiar">
-                        {popularCountries.map((place) => (
-                          <option key={place.id} value={place.id}>{place.name}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="All countries">
-                        {otherCountries.map((place) => (
-                          <option key={place.id} value={place.id}>{place.name}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </label>
-                  <label className="place-search" htmlFor="state-pick">
-                    US state
-                    <select
-                      id="state-pick"
-                      value={choice === "custom" && usStates.some((place) => place.id === customId) ? customId : ""}
-                      onChange={(event) => {
-                        const place = findPlace(event.target.value);
-                        if (!place) return;
-                        router.push(placeHref(place.id));
-                      }}
-                    >
-                      <option value="">Choose a state</option>
-                      {usStates.map((place) => (
-                        <option key={place.id} value={place.id}>{place.name}</option>
-                      ))}
-                    </select>
-                  </label>
+                  {categories.map((category) => (
+                    <label className="place-search" htmlFor={`${category.id}-pick`} key={category.id}>
+                      {category.label}
+                      <select
+                        id={`${category.id}-pick`}
+                        value={choice === "custom" && category.items.some((place) => place.id === customId) ? customId : ""}
+                        onChange={(event) => {
+                          const place = findPlace(event.target.value);
+                          if (!place) return;
+                          router.push(placeHref(place.id));
+                        }}
+                      >
+                        <option value="">{`Choose ${category.prompt}`}</option>
+                        {category.id === "country" ? (
+                          <>
+                            <optgroup label="Familiar">
+                              {popularCountries.map((place) => (
+                                <option key={place.id} value={place.id}>{place.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="All countries">
+                              {otherCountries.map((place) => (
+                                <option key={place.id} value={place.id}>{place.name}</option>
+                              ))}
+                            </optgroup>
+                          </>
+                        ) : (
+                          category.items.map((place) => (
+                            <option key={place.id} value={place.id}>{place.name}</option>
+                          ))
+                        )}
+                      </select>
+                    </label>
+                  ))}
                 </div>
                 {challenged && <p className="setup-note">Beat {challenged.score}%.</p>}
                 <button className="primary start-button" onClick={start} disabled={!ready || !playPlace}>
@@ -678,7 +671,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   </button>
                 </div>
                 <button className="primary reveal-button" onClick={finish}>
-                  <IconLabel icon={Check}>Reveal my map</IconLabel>
+                  <IconLabel icon={Check}>Reveal my drawing</IconLabel>
                 </button>
               </div>
               <DrawingBoard
@@ -746,7 +739,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               <div className="result-map">
                 <div className="result-map-top">
                   <span className="map-label">
-                    <Globe2 size={16} /> THE ACTUAL COUNTRY
+                    <Globe2 size={16} /> THE REAL SHAPE
                   </span>
                   <span>REALITY</span>
                 </div>
@@ -766,7 +759,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   </svg>
                 </div>
                 <div className="map-footer">
-                  <PlaceMark value={country.flag} /> {country.scope === "Contiguous United States" ? country.scope : country.name}, geographically.
+                  <PlaceMark value={country.flag} /> {country.name}, actually.
                 </div>
               </div>
             </div>
@@ -835,10 +828,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         )}
 
         {view === "archive" && (
-          <section className="archive" aria-label="Your maps">
+          <section className="archive" aria-label="Your drawings">
             <div className="archive-heading">
-              <h1>{!watched || watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
-              <p>{!watched || watched === nickname ? "Open one to hear what the atlas said." : "Open one to see how they remember the world."}</p>
+              <h1>{!watched || watched === nickname ? "Your drawings" : `${watched}'s drawings`}</h1>
+              <p>{!watched || watched === nickname ? "Open one to hear what the sketchbook said." : "Open one to see how they remember the shape."}</p>
             </div>
             {mapsSaved == null ? (
               <div className="archive-grid" aria-hidden="true">
@@ -857,7 +850,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 ))}
               </div>
             ) : (
-              <p className="archive-empty">No drawings yet. Draw a country or a state and it will show up here.</p>
+              <p className="archive-empty">No drawings yet. Draw a country, a state, or a shape and it will show up here.</p>
             )}
             <button className="primary archive-back" onClick={reset}>
               <IconLabel icon={Pencil}>Draw another</IconLabel>
@@ -881,10 +874,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           const others = mapsSaved?.filter((item) => item.id !== drawing?.id) ?? [];
           const caption = watched === nickname ? "Yours" : "Theirs";
           return (
-            <section className="archive" aria-label={`${watched}'s maps`}>
+            <section className="archive" aria-label={`${watched}'s drawings`}>
               <div className="archive-heading">
-                <h1>{watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
-                <p>{watched === nickname ? "This one is open. The rest of your atlas is below." : "This is the drawing you opened. The rest of their atlas is below."}</p>
+                <h1>{watched === nickname ? "Your drawings" : `${watched}'s drawings`}</h1>
+                <p>{watched === nickname ? "This one is open. The rest of your drawings are below." : "This is the drawing you opened. See more from them below."}</p>
               </div>
               {mapsSaved == null ? (
                 <div className="archive-grid" aria-hidden="true">

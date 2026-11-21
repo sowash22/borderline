@@ -1,12 +1,13 @@
+import { subjectFor } from "./places";
 import { normalize, strokePath, verdict, type Stroke } from "./scoring";
 
 export async function resultImage(
-  country: { name: string; path: string },
+  country: { name: string; path: string; kind?: string },
   strokes: Stroke[],
   score: number,
   reactionIndex = 0,
 ): Promise<Blob> {
-  const { title } = verdict(score, !strokes.length, reactionIndex);
+  const { title } = verdict(score, !strokes.length, reactionIndex, subjectFor(country));
   const escape = (text: string) =>
     text.replace(
       /[&<>"']/g,

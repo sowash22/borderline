@@ -128,10 +128,39 @@ export const revealResponses = groups.flatMap((group) => group.entries.map(([tit
   min: group.min, title, line, emoji: group.emoji,
 })));
 
-export function verdict(score: number, empty: boolean, variant = 0): Reaction {
-  if (empty) return { title: "An invisible country.", line: "The blank canvas is ready whenever you are. Give it a little country!", emoji: "👻" };
+function rewrite(text: string, subject: string) {
+  if (subject === "country") return text;
+  return text
+    .replaceAll("The country", `The ${subject}`)
+    .replaceAll("the country", `the ${subject}`)
+    .replaceAll("A country", `A ${subject}`)
+    .replaceAll("a country", `a ${subject}`)
+    .replaceAll("Country", subject[0].toUpperCase() + subject.slice(1))
+    .replaceAll("country", subject)
+    .replaceAll("The borders", "The outline")
+    .replaceAll("the borders", "the outline")
+    .replaceAll("borders", "lines")
+    .replaceAll("coastline", "outline")
+    .replaceAll("geography", "drawing")
+    .replaceAll("Geography", "The drawing")
+    .replaceAll("atlas", "sketchbook")
+    .replaceAll("Atlas", "Sketchbook");
+}
+
+export function verdict(score: number, empty: boolean, variant = 0, subject = "country"): Reaction {
+  if (empty) {
+    return {
+      title: `An invisible ${subject}.`,
+      line: `The blank canvas is ready whenever you are. Give it a little ${subject}!`,
+      emoji: "👻",
+    };
+  }
   const band = Math.min(9, Math.max(0, Math.floor((Number.isFinite(score) ? score : 0) / 10)));
   const index = Math.abs(Math.trunc(Number.isFinite(variant) ? variant : 0)) % 10;
   const { min: _, ...reaction } = revealResponses[band * 10 + index];
-  return reaction;
+  return {
+    title: rewrite(reaction.title, subject),
+    line: rewrite(reaction.line, subject),
+    emoji: reaction.emoji,
+  };
 }

@@ -2013,6 +2013,9 @@ footer.compact-footer {
   gap: 10px;
   margin-bottom: 4px;
 }
+@media (min-width: 700px) {
+  .place-picks { grid-template-columns: 1fr 1fr 1fr; }
+}
 .place-search {
   display: block;
   margin: 4px 0 10px;

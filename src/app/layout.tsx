@@ -2,18 +2,18 @@ import type { Metadata, Viewport } from "next";
 import Game from "@/components/game";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "Borderline — Draw a country. Question your geography.",
+  title: "Borderline — Draw a shape. Question your memory.",
   description:
-    "A tiny geography game with a big reality check. Draw a country from memory at your own pace, reveal the real map, and challenge a friend.",
+    "Draw a country, an animal, a fruit, or a shape from memory, then compare it with the real outline.",
   openGraph: {
-    title: "Borderline — How bad is your geography?",
-    description: "Draw a country from memory, then compare it with the real map.",
+    title: "Borderline — How bad is your drawing?",
+    description: "Draw a country or a shape from memory, then compare it with the real outline.",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "Borderline — Draw a country from memory",
-    description: "Your geography is about to get personal.",
+    title: "Borderline — Draw from memory",
+    description: "Your drawing is about to get personal.",
   },
 };
 export const viewport: Viewport = {

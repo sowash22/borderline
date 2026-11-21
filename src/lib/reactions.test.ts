@@ -18,7 +18,7 @@ test("100 distinct reactions, with ten options for every score band", () => {
 test("perfect scores, blank drawings, and saved reactions stay consistent", () => {
   assert.deepEqual(verdict(100, false, 9), verdict(90, false, 9));
   assert.deepEqual(verdict(0, true, 0), verdict(100, true, 9));
-  assert.match(verdict(0, true).title, /invisible/);
+  assert.match(verdict(0, true).title, /invisible country/);
   assert.deepEqual(verdict(75, false, 3), verdict(75, false, 3));
   assert.deepEqual(verdict(-20, false), verdict(0, false));
   assert.deepEqual(verdict(NaN, false), verdict(0, false));
