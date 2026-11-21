@@ -252,19 +252,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       setPhase("scores");
       return;
     }
-    if (route.view === "player") {
+    if (route.view === "player" || route.view === "compare") {
+      if (watched !== route.player) setMapsSaved(null);
       setWatched(route.player);
-      setMapsSaved(null);
-      phaseRef.current = "archive";
-      setPhase("archive");
-      return;
-    }
-    if (route.view === "compare") {
-      setWatched(route.player);
-      setWatchedPlace(route.placeId);
-      setMapsSaved(null);
-      phaseRef.current = "compare";
-      setPhase("compare");
+      if (route.view === "compare") setWatchedPlace(route.placeId);
+      phaseRef.current = route.view === "player" ? "archive" : "compare";
+      setPhase(route.view === "player" ? "archive" : "compare");
     }
   }, [pathname, router]);
   useEffect(() => {
