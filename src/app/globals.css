@@ -2000,8 +2000,7 @@ footer.compact-footer {
   background: #f4f1ff;
 }
 .standing-list a:hover .standing-open {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  transform: translateX(2px);
 }
 .mini-maps {
   display: flex;
@@ -2074,9 +2073,9 @@ footer.compact-footer {
   font-size: 14px;
 }
 .standing-open {
+  display: inline-flex;
   color: var(--purple);
-  font-size: 13px;
-  font-weight: 700;
+  transition: transform 0.15s;
 }
 .top-actions {
   display: flex;

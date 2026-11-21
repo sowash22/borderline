@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Download,
   Globe2,
   Linkedin,
@@ -216,7 +217,9 @@ function Standings({
                 </span>
                 <MiniMaps entry={entry} />
                 <b>{entry.score}%</b>
-                <span className="standing-open">Open</span>
+                <span className="standing-open" aria-hidden="true">
+                  <ChevronRight size={18} />
+                </span>
               </Link>
             </li>
           ))}
