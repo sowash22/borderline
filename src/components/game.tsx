@@ -9,12 +9,15 @@ import {
   Pencil,
   RotateCcw,
   Share2,
-  Shuffle,
   Trash2,
   Trophy,
   Undo2,
 } from "lucide-react";
-import maps from "@/lib/maps.json";
+import { countries, findPlace, usStates } from "@/lib/places";
+import { nicknameStorageKey, type DailyBoard } from "@/lib/board";
+import { challengeLine, parseBeat } from "@/lib/challenge";
+import { dailyCountry } from "@/lib/daily";
+import { ensurePlayerName } from "@/lib/nicknames";
 import DrawingBoard from "./drawing-board";
 import {
   normalize,
@@ -25,10 +28,26 @@ import {
 } from "@/lib/scoring";
 import { resultImage } from "@/lib/share";
 
-type Phase = "setup" | "drawing" | "result";
+type Phase = "setup" | "drawing" | "result" | "archive";
+type SavedMap = {
+  countryId: string;
+  countryName: string;
+  flag: string;
+  score: number;
+  day: string;
+  strokes: Stroke[] | null;
+};
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v2";
-const defaultMap = maps.find((map) => map.code === "IT")!;
+const defaultMap = countries.find((map) => map.code === "IT")!;
+
+function PlaceMark({ value }: { value: string }) {
+  return (
+    <span className={value.length <= 3 ? "place-code" : "flag"} aria-hidden="true">
+      {value}
+    </span>
+  );
+}
 function IconLabel({
   children,
   icon: Icon,
@@ -44,9 +63,61 @@ function IconLabel({
   );
 }
 
+function Standings({
+  board,
+  nickname,
+  posting,
+}: {
+  board: DailyBoard | null;
+  nickname: string;
+  posting: boolean;
+}) {
+  if (board && !board.configured) return null;
+  return (
+    <section className="standings" aria-label="Today's leaderboard" aria-busy={board == null}>
+      <h2>
+        <Trophy size={18} aria-hidden="true" /> Today’s board
+      </h2>
+      <p className="standings-note">
+        Best score today, from any country.
+        {nickname ? ` You are ${nickname}.` : ""}
+      </p>
+      {board == null ? (
+        <div aria-hidden="true">
+          <div className="standing-skeleton" />
+          <div className="standing-skeleton" />
+          <div className="standing-skeleton" />
+        </div>
+      ) : board.entries.length ? (
+        <ol className="standing-list">
+          {board.entries.map((entry, index) => (
+            <li
+              key={`${entry.nickname}-${entry.countryId}`}
+              className={entry.nickname === nickname ? "standing-you" : undefined}
+            >
+              <span className="standing-rank">{index + 1}</span>
+              <span>
+                <strong>{entry.nickname}</strong>
+                <span className="standing-country">{entry.flag} {entry.countryName}</span>
+              </span>
+              <b>{entry.score}%</b>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="daily-empty">{posting ? "Saving your score…" : "No scores yet. Yours can be first."}</p>
+      )}
+    </section>
+  );
+}
+
 export default function Game({ initialCountryId }: { initialCountryId?: string } = {}) {
   const [phase, setPhase] = useState<Phase>("setup");
-  const [country, setCountry] = useState(() => maps.find((map) => map.id === initialCountryId) ?? defaultMap);
+  const [country, setCountry] = useState(() => (initialCountryId && findPlace(initialCountryId)) || defaultMap);
+  const [pack, setPack] = useState<"country" | "state">("country");
+  const [choice, setChoice] = useState<"today" | "custom">("today");
+  const [customId, setCustomId] = useState("");
+  const [mapsSaved, setMapsSaved] = useState<SavedMap[] | null>(null);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [score, setScore] = useState(0);
   const [reactionIndex, setReactionIndex] = useState(0);
@@ -56,9 +127,14 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [busy, setBusy] = useState(false);
   const [linkFallback, setLinkFallback] = useState("");
   const [ready, setReady] = useState(false);
+  const [challenge, setChallenge] = useState<{ countryId: string; score: number } | null>(null);
+  const [todayId, setTodayId] = useState("");
+  const [board, setBoard] = useState<DailyBoard | null>(null);
+  const [nickname, setNickname] = useState("");
+  const [posting, setPosting] = useState(false);
   const phaseRef = useRef<Phase>("setup"),
     ink = useRef<Stroke[]>([]);
-  const recent = useRef<string[]>([]);
+  const postedRound = useRef("");
   const titleRef = useRef<HTMLHeadingElement>(null);
   const best = bests[country.id] ?? 0;
   const judgement = verdict(score, !strokes.length, reactionIndex);
@@ -82,12 +158,31 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     } catch {
       /* Private browsing can disable storage. The game still works. */
     }
+    const today = dailyCountry();
     const params = new URLSearchParams(location.search);
-    const chosen = maps.find((map) => map.id === params.get("country"));
-    if (chosen) {
-      setCountry(chosen);
-      setToast("Friend challenge loaded. Your turn!");
+    const linked = findPlace(params.get("country") ?? "");
+    setTodayId(today.id);
+    if (linked && linked.id !== today.id) {
+      setChoice("custom");
+      setCustomId(linked.id);
+      setCountry(linked);
+      if (usStates.some((state) => state.id === linked.id)) setPack("state");
+    } else {
+      setChoice("today");
+      setCountry(today);
     }
+    const beat = parseBeat(params.get("beat"));
+    if (beat != null && linked) {
+      setChallenge({ countryId: linked.id, score: beat });
+      setToast(`Friend challenge loaded. Beat ${beat}%.`);
+    }
+    const name = ensurePlayerName(localStorage.getItem(nicknameStorageKey));
+    try {
+      localStorage.setItem(nicknameStorageKey, name);
+    } catch {
+      /* The round still scores on this device. */
+    }
+    setNickname(name);
     setReady(true);
   }, []);
   useEffect(() => {
@@ -123,12 +218,85 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     if (phase === "result") titleRef.current?.focus();
   }, [phase]);
 
+  useEffect(() => {
+    let cancel = false;
+    fetch("/api/scores")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: DailyBoard) => {
+        if (!cancel) setBoard(data?.configured ? data : { configured: false, entries: [] });
+      })
+      .catch(() => {
+        if (!cancel) setBoard({ configured: false, entries: [] });
+      });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "archive" || !nickname) return;
+    let cancel = false;
+    fetch(`/api/drawings?nickname=${encodeURIComponent(nickname)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data: { drawings?: SavedMap[] }) => {
+        if (!cancel) setMapsSaved(data.drawings ?? []);
+      })
+      .catch(() => {
+        if (!cancel) setMapsSaved([]);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [phase, nickname]);
+
+  useEffect(() => {
+    if (phase !== "result" || !nickname) return;
+    const roundKey = `${country.id}:${score}:${nickname}`;
+    if (postedRound.current === roundKey) return;
+    postedRound.current = roundKey;
+    let cancel = false;
+    setPosting(true);
+    fetch("/api/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname, countryId: country.id, score, strokes: ink.current }),
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        if (cancel) return;
+        if (!response.ok) {
+          postedRound.current = "";
+          if (response.status !== 503) setToast(data?.message ?? "Couldn’t post that score.");
+          return;
+        }
+        if (data?.board?.configured) setBoard(data.board);
+        if (data?.kept) setToast(`Your best for today stays at ${data.score}%.`);
+      })
+      .catch(() => {
+        if (cancel) return;
+        postedRound.current = "";
+        setToast("Couldn’t post that score.");
+      })
+      .finally(() => {
+        if (!cancel) setPosting(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [phase, score, nickname, country.id]);
+
   const changeInk = (value: Stroke[]) => {
     ink.current = value;
     setStrokes(value);
   };
   const acceptInput = () => phaseRef.current === "drawing";
+  const openArchive = () => {
+    setMapsSaved(null);
+    setPhase("archive");
+  };
   const start = () => {
+    if (!playPlace) return;
+    setCountry(playPlace);
     changeInk([]);
     phaseRef.current = "drawing";
     setPhase("drawing");
@@ -140,15 +308,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setPhase("setup");
     changeInk([]);
     setLinkFallback("");
-  };
-  const randomCountry = () => {
-    recent.current = [...recent.current, country.id].slice(-5);
-    const choices = maps.filter((map) => !recent.current.includes(map.id));
-    setCountry(choices[Math.floor(Math.random() * choices.length)]);
-  };
-  const nextRound = () => {
-    randomCountry();
-    reset();
   };
   const save = async () => {
     setBusy(true);
@@ -171,6 +330,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setBusy(true);
     const url = new URL(location.origin);
     url.searchParams.set("country", country.id);
+    url.searchParams.set("beat", String(score));
     const text = `I drew ${country.name} and got ${score}% shape match on Borderline. Can you beat that?`;
     try {
       if (navigator.share) {
@@ -201,6 +361,11 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       setBusy(false);
     }
   };
+  const today = findPlace(todayId);
+  const choices = pack === "state" ? usStates : countries;
+  const customPlace = findPlace(customId);
+  const playPlace = choice === "today" ? today : customPlace;
+  const challenged = challenge?.countryId === country.id ? challenge : null;
 
   return (
     <div className="app-shell">
@@ -216,6 +381,13 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           </span>
           borderline<span className="brand-dot">.</span>
         </button>
+        <button
+          className="text-button maps-link"
+          onClick={openArchive}
+          disabled={phase === "drawing" || phase === "archive"}
+        >
+          Your maps
+        </button>
       </header>
 
       <main>
@@ -227,26 +399,84 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 discover the world. Then I thought: why should kids have all the fun?
               </h1>
             </div>
-            <div className="setup-card simple-setup">
-              <label className="simple-country" htmlFor="country">
-                Choose a country
-              </label>
-              <div className="simple-country-row">
-                <span className="flag" aria-hidden="true">{country.flag}</span>
-                <select
-                  id="country"
-                  value={country.id}
-                  onChange={(event) => setCountry(maps.find((map) => map.id === event.target.value)!)}
+            <div className="home-stage">
+              <div className="setup-card simple-setup">
+                <p className="simple-country">What will you draw?</p>
+                <button
+                  type="button"
+                  className="day-choice today-choice"
+                  aria-pressed={choice === "today"}
+                  disabled={!today}
+                  onClick={() => {
+                    if (!today) return;
+                    setChoice("today");
+                    setCountry(today);
+                  }}
                 >
-                  {maps.map((map) => <option key={map.id} value={map.id}>{map.name}</option>)}
+                  {today && <PlaceMark value={today.flag} />}
+                  <span>
+                    <small>Today</small>
+                    <strong>{today?.name ?? "One moment…"}</strong>
+                  </span>
+                </button>
+                <p className="simple-country own-label">Or pick another</p>
+                <div className="pack-toggle" role="group" aria-label="Country or state list">
+                  <button
+                    type="button"
+                    aria-pressed={pack === "country"}
+                    onClick={() => {
+                      setPack("country");
+                      if (choice === "custom" && !countries.some((place) => place.id === customId)) setCustomId("");
+                    }}
+                  >
+                    Country
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={pack === "state"}
+                    onClick={() => {
+                      setPack("state");
+                      if (choice === "custom" && !usStates.some((place) => place.id === customId)) setCustomId("");
+                    }}
+                  >
+                    State
+                  </button>
+                </div>
+                <label className="sr-only" htmlFor="place">
+                  {pack === "state" ? "Choose a state" : "Choose a country"}
+                </label>
+                <select
+                  id="place"
+                  className={choice === "custom" && playPlace ? "is-target" : undefined}
+                  value={choice === "custom" && choices.some((place) => place.id === customId) ? customId : ""}
+                  onChange={(event) => {
+                    const place = choices.find((item) => item.id === event.target.value);
+                    if (!place) {
+                      setCustomId("");
+                      setChoice("custom");
+                      return;
+                    }
+                    if (place.id === today?.id) {
+                      setChoice("today");
+                      setCountry(place);
+                      return;
+                    }
+                    setCustomId(place.id);
+                    setChoice("custom");
+                    setCountry(place);
+                  }}
+                >
+                  <option value="">{pack === "state" ? "Choose a state" : "Choose a country"}</option>
+                  {choices.map((place) => (
+                    <option key={place.id} value={place.id}>{place.name}</option>
+                  ))}
                 </select>
+                {challenged && <p className="setup-note">Beat {challenged.score}%.</p>}
+                <button className="primary start-button" onClick={start} disabled={!ready || !playPlace}>
+                  <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : pack === "state" ? "Choose a state" : "Choose a country"}</IconLabel>
+                </button>
               </div>
-              <button className="text-button surprise-button" onClick={randomCountry}>
-                <IconLabel icon={Shuffle}>Surprise me</IconLabel>
-              </button>
-              <button className="primary start-button" onClick={start} disabled={!ready}>
-                <IconLabel icon={Pencil}>Let’s draw</IconLabel>
-              </button>
+              <Standings board={board} nickname={nickname} posting={posting} />
             </div>
           </section>
         )}
@@ -256,8 +486,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             <div className="play-heading">
               <div>
                 <h1>
-                  Draw {country.name}
-                  <span aria-hidden="true"> {country.flag}</span>
+                  Draw {country.name}{" "}
+                  <PlaceMark value={country.flag} />
                 </h1>
               </div>
             </div>
@@ -294,7 +524,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               />
             </div>
             <p className="playing-note">
-              {country.scope ? "Draw the contiguous 48 states with your finger, mouse, or stylus." : "Draw with your finger, mouse, or stylus."}
+              {challenged ? `Beat ${challenged.score}%. ` : ""}
+              {country.scope === "Contiguous United States" ? "Draw the contiguous 48 states with your finger, mouse, or stylus." : "Draw with your finger, mouse, or stylus."}
             </p>
           </section>
         )}
@@ -341,7 +572,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   )}
                 </div>
                 <div className="map-footer">
-                  {country.flag} {country.name}, apparently.
+                  <PlaceMark value={country.flag} /> {country.name}, apparently.
                 </div>
               </div>
               <div className="result-map">
@@ -367,7 +598,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   </svg>
                 </div>
                 <div className="map-footer">
-                  {country.flag} {country.scope || country.name}, geographically.
+                  <PlaceMark value={country.flag} /> {country.scope === "Contiguous United States" ? country.scope : country.name}, geographically.
                 </div>
               </div>
             </div>
@@ -398,18 +629,17 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 </span>
               </div>
             </div>
+            {challenged && <p className="challenge-line">{challengeLine(score, challenged.score)}</p>}
             <p className="score-note">
               A playful outline comparison, adjusted for size and position. Not
               a geography exam.
             </p>
             <div className="result-actions">
-              <button className="primary" onClick={nextRound}>
-                <IconLabel icon={Shuffle}>Another country</IconLabel>
-              </button>
-              <button className="secondary" onClick={start}>
+              <button className="primary" onClick={start}>
                 <IconLabel icon={RotateCcw}>Try {country.name} again</IconLabel>
               </button>
             </div>
+            <Standings board={board} nickname={nickname} posting={posting} />
             <div className="share-actions">
               <button className="text-button" disabled={busy} onClick={share}>
                 <IconLabel icon={Share2}>Challenge a friend</IconLabel>
@@ -432,6 +662,47 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             )}
             <button className="back-button" onClick={reset}>
               <IconLabel icon={ArrowLeft}>Back to the drawing board</IconLabel>
+            </button>
+          </section>
+        )}
+
+        {phase === "archive" && (
+          <section className="archive" aria-label="Your maps">
+            <div className="archive-heading">
+              <h1>Your maps</h1>
+              <p>{nickname ? `${nickname} · each place you have drawn` : "Draw a place and it will be kept here."}</p>
+            </div>
+            {mapsSaved == null ? (
+              <div className="archive-grid" aria-hidden="true">
+                <div className="standing-skeleton archive-skeleton" />
+                <div className="standing-skeleton archive-skeleton" />
+              </div>
+            ) : mapsSaved.length ? (
+              <div className="archive-grid">
+                {mapsSaved.map((item) => (
+                  <article key={`${item.countryId}-${item.day}`} className="archive-card">
+                    <div className="archive-paper">
+                      <svg viewBox="0 0 600 400" role="img" aria-label={`Your drawing of ${item.countryName}`}>
+                        <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                          {item.strokes ? normalize(item.strokes).map((stroke, index) => (
+                            <path key={index} d={strokePath(stroke)} />
+                          )) : null}
+                        </g>
+                      </svg>
+                      {!item.strokes && <span className="empty-result">Score only</span>}
+                    </div>
+                    <div className="archive-meta">
+                      <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
+                      <span>{item.score}% · {item.day}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="archive-empty">No drawings yet. Draw a country or a state and it will show up here.</p>
+            )}
+            <button className="primary archive-back" onClick={reset}>
+              <IconLabel icon={Pencil}>Draw another</IconLabel>
             </button>
           </section>
         )}
