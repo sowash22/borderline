@@ -1967,18 +1967,16 @@ footer.compact-footer {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: inherit;
+  color: var(--purple);
   text-decoration: none;
 }
-.standings-note {
-  margin: 6px 0 12px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
+.standings-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .standing-list {
   list-style: none;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
 }
 .standing-list li {
@@ -1988,13 +1986,22 @@ footer.compact-footer {
 }
 .standing-list a {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
   gap: 8px;
   align-items: center;
   min-height: 52px;
-  padding: 8px 0;
+  padding: 8px 6px;
+  margin: 0 -6px;
+  border-radius: 10px;
   color: inherit;
   text-decoration: none;
+}
+.standing-list a:hover {
+  background: #f4f1ff;
+}
+.standing-list a:hover .standing-open {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .mini-maps {
   display: flex;
@@ -2066,11 +2073,7 @@ footer.compact-footer {
   color: var(--muted);
   font-size: 14px;
 }
-.standings-all {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: 4px;
+.standing-open {
   color: var(--purple);
   font-size: 13px;
   font-weight: 700;
@@ -2130,8 +2133,8 @@ footer.compact-footer {
   border: 0;
   padding: 0;
 }
+.scores-page .archive-heading { margin-bottom: 8px; }
 .scores-page .standings h2 { display: none; }
-.scores-page .standings-note { display: none; }
 @media (max-width: 800px) {
   .home-stage { grid-template-columns: 1fr; }
   .simple-landing { max-width: 460px; }

@@ -16,7 +16,19 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { countries, findPlace, otherCountries, popularCountries, usStates } from "@/lib/places";
+import {
+  allStates,
+  countries,
+  findPlace,
+  otherCountries,
+  otherIndianStates,
+  otherUsStates,
+  popularCountries,
+  popularIndianStates,
+  popularUsStates,
+  usStates,
+  indianStates,
+} from "@/lib/places";
 import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
 import { ensurePlayerName } from "@/lib/nicknames";
@@ -46,7 +58,7 @@ type SavedMap = {
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v2";
 const defaultMap = countries.find((map) => map.code === "IT")!;
-const places = [...countries, ...usStates];
+const places = [...countries, ...usStates, ...indianStates];
 
 function randomPlace() {
   return places[Math.floor(Math.random() * places.length)] ?? defaultMap;
@@ -183,9 +195,6 @@ function Standings({
           </>
         )}
       </h2>
-      <p className="standings-note">
-        {preview ? "All-time highs. Open the board to see every drawing." : "All-time highs. Open a drawing, then see more from that person."}
-      </p>
       {board == null ? (
         <div aria-hidden="true">
           <div className="standing-skeleton" />
@@ -207,15 +216,13 @@ function Standings({
                 </span>
                 <MiniMaps entry={entry} />
                 <b>{entry.score}%</b>
+                <span className="standing-open">Open</span>
               </Link>
             </li>
           ))}
         </ol>
       ) : (
         <p className="daily-empty">{posting ? "Saving your score…" : "No scores yet."}</p>
-      )}
-      {preview && entries.length > 0 && (
-        <Link className="standings-all" href={scoresHref}>See the full board</Link>
       )}
     </section>
   );
@@ -271,7 +278,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           Object.fromEntries(
             Object.entries(saved).filter(
               ([key, value]) =>
-                (/^\d{3}$/.test(key) || /^S\d{2}$/.test(key)) &&
+                Boolean(findPlace(key)) &&
                 typeof value === "number" &&
                 Number.isFinite(value) &&
                 value >= 0 &&
@@ -622,10 +629,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                     </select>
                   </label>
                   <label className="place-search" htmlFor="state-pick">
-                    US state
+                    State
                     <select
                       id="state-pick"
-                      value={choice === "custom" && usStates.some((place) => place.id === customId) ? customId : ""}
+                      value={choice === "custom" && allStates.some((place) => place.id === customId) ? customId : ""}
                       onChange={(event) => {
                         const place = findPlace(event.target.value);
                         if (!place) return;
@@ -633,9 +640,26 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                       }}
                     >
                       <option value="">Choose a state</option>
-                      {usStates.map((place) => (
-                        <option key={place.id} value={place.id}>{place.name}</option>
-                      ))}
+                      <optgroup label="Familiar US">
+                        {popularUsStates.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Familiar India">
+                        {popularIndianStates.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="More US states">
+                        {otherUsStates.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="More Indian states">
+                        {otherIndianStates.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   </label>
                 </div>
@@ -869,7 +893,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <section className="archive scores-page" aria-label="Leaderboard">
             <div className="archive-heading">
               <h1>Leaderboard</h1>
-              <p>Every all-time high. Open a drawing, then see more from that person.</p>
             </div>
             <Standings board={board} nickname={nickname} posting={posting} />
           </section>
