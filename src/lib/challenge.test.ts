@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { challengeLine, parseBeat } from "./challenge";
-import { acceptScore, bestToday, nextBest, normalizeNickname } from "./board";
+import { acceptScore, bestByPlace, nextBest, normalizeNickname } from "./board";
 
 test("challenge links only carry a whole score from 0 to 100", () => {
   assert.equal(parseBeat("72"), 72);
@@ -28,16 +28,17 @@ test("nicknames stay short and plain", () => {
   assert.equal(normalizeNickname("x".repeat(41)), null);
 });
 
-test("today's board keeps each player's highest score from any country", () => {
-  const board = bestToday([
-    { nickname: "pounce4821", score: 40, countryId: "360" },
-    { nickname: "pounce4821", score: 80, countryId: "380" },
-    { nickname: "oscar1901", score: 70, countryId: "004" },
+test("each place keeps its own all-time high for a player", () => {
+  const board = bestByPlace([
+    { id: "a", nickname: "pounce4821", score: 40, countryId: "360", strokes: null, reaction: 1 },
+    { id: "b", nickname: "pounce4821", score: 80, countryId: "380", strokes: null, reaction: 2 },
+    { id: "c", nickname: "pounce4821", score: 55, countryId: "380", strokes: null, reaction: 3 },
+    { id: "d", nickname: "oscar1901", score: 70, countryId: "004", strokes: null, reaction: 4 },
   ]);
-  assert.deepEqual(board, [
-    { nickname: "pounce4821", score: 80, countryId: "380" },
-    { nickname: "oscar1901", score: 70, countryId: "004" },
-  ]);
+  assert.deepEqual(
+    board.map((row) => row.id),
+    ["b", "d", "a"],
+  );
 });
 
 test("a later lower score does not replace the day's best", () => {

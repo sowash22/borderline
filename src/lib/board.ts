@@ -1,17 +1,24 @@
 export const nicknameStorageKey = "borderline:nickname";
 
 export type BoardEntry = {
+  id: string;
   nickname: string;
   score: number;
   countryId: string;
   countryName: string;
   flag: string;
+  path: string;
+  strokes: { x: number; y: number }[][] | null;
+  reaction: number;
 };
 
 export type StoredScore = {
+  id: string;
   nickname: string;
   score: number;
   countryId: string;
+  strokes: { x: number; y: number }[][] | null;
+  reaction: number;
 };
 
 export type DailyBoard = {
@@ -34,16 +41,16 @@ export function acceptScore(value: unknown): number | null {
   return value;
 }
 
-export function bestToday(rows: StoredScore[]): StoredScore[] {
+export function bestByPlace(rows: StoredScore[]): StoredScore[] {
   const best = new Map<string, StoredScore>();
   for (const row of rows) {
-    const key = row.nickname.toLowerCase();
+    const key = `${row.nickname.toLowerCase()}:${row.countryId}`;
     const current = best.get(key);
     if (!current || row.score > current.score) best.set(key, row);
   }
   return [...best.values()]
     .sort((a, b) => b.score - a.score || a.nickname.localeCompare(b.nickname))
-    .slice(0, 10);
+    .slice(0, 20);
 }
 
 export function nextBest(

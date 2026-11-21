@@ -1749,6 +1749,8 @@ footer.compact-footer {
   border: 1px solid var(--line);
   border-radius: 18px;
   overflow: hidden;
+  color: inherit;
+  text-decoration: none;
 }
 .archive-paper {
   position: relative;
@@ -1770,7 +1772,12 @@ footer.compact-footer {
 }
 .archive-meta span { color: var(--muted); }
 .archive-skeleton { height: 180px; }
-.archive-back { margin-top: 18px; }
+.more-maps { margin-top: 28px; }
+.more-maps h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 22px;
+  margin: 0 0 12px;
+}
 @media (max-width: 700px) {
   .archive-grid { grid-template-columns: 1fr; }
   .archive-heading h1 { font-size: 28px; }
@@ -1832,12 +1839,100 @@ footer.compact-footer {
   padding: 0;
 }
 .standing-list li {
+  display: block;
+  min-height: 52px;
+  border-top: 1px solid var(--line);
+}
+.standing-list a {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   min-height: 52px;
-  border-top: 1px solid var(--line);
+  padding: 8px 0;
+  color: inherit;
+  text-decoration: none;
+}
+.mini-maps {
+  display: flex;
+  gap: 4px;
+}
+.mini-maps svg {
+  width: 42px;
+  height: 28px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.place-search {
+  display: block;
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.place-search input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.place-results {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.place-results button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+.place-results li:last-child button { border-bottom: 0; }
+.place-results button.is-target {
+  background: #f4f1ff;
+}
+.place-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.standings-all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 4px;
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 700;
+}
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.whoami {
+  font-size: 14px;
+  font-weight: 700;
 }
 .standing-rank {
   color: var(--muted);
@@ -1857,10 +1952,7 @@ footer.compact-footer {
   font-variant-numeric: tabular-nums;
 }
 .standing-you {
-  background: #f4f1ff;
-  border-radius: 10px;
-  margin: 0 -8px;
-  padding: 0 8px;
+  background: transparent;
 }
 .standing-skeleton {
   height: 44px;

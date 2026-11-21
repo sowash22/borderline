@@ -1,7 +1,17 @@
-import { bestToday, nextBest, type StoredScore } from "./board";
+import { bestByPlace, type StoredScore } from "./board";
 import type { Stroke } from "./scoring";
+import { compactStrokes } from "./strokes";
 
-type Row = { id: string; nickname: string; score: number; country_id: string };
+type Row = {
+  id: string;
+  nickname: string;
+  score: number;
+  country_id: string;
+  strokes?: unknown;
+  reaction?: unknown;
+  day?: string;
+  created_at?: string;
+};
 
 function config() {
   const url = process.env.SUPABASE_URL?.replace(/\/$/, "");
@@ -45,63 +55,94 @@ async function rest<T>(path: string, init?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : null) as T;
 }
 
-export async function listDailyScores(day: string): Promise<StoredScore[]> {
-  const rows = await rest<Row[]>(
-    `daily_scores?day=eq.${day}&select=nickname,score,country_id&order=score.desc,nickname.asc&limit=200`,
-  );
-  const scores = (rows ?? [])
-    .filter(
-      (row) =>
-        typeof row.nickname === "string" &&
-        typeof row.country_id === "string" &&
-        typeof row.score === "number" &&
-        Number.isInteger(row.score),
-    )
-    .map((row) => ({
-      nickname: row.nickname,
-      score: row.score,
-      countryId: row.country_id,
-    }));
-  return bestToday(scores);
+function asScore(row: Row): StoredScore | null {
+  if (typeof row.nickname !== "string" || typeof row.country_id !== "string") return null;
+  if (typeof row.score !== "number" || !Number.isInteger(row.score)) return null;
+  const reaction = typeof row.reaction === "number" && Number.isInteger(row.reaction) ? row.reaction : 0;
+  return {
+    id: row.id,
+    nickname: row.nickname,
+    score: row.score,
+    countryId: row.country_id,
+    strokes: compactStrokes(row.strokes),
+    reaction,
+  };
 }
 
-async function writeRow(path: string, method: "POST" | "PATCH", payload: Record<string, unknown>, strokes: Stroke[] | null) {
+async function selectRows(filter: string): Promise<Row[]> {
+  const selects = [
+    "id,nickname,score,country_id,strokes,reaction,created_at,day",
+    "id,nickname,score,country_id,strokes,created_at,day",
+    "id,nickname,score,country_id,created_at,day",
+  ];
+  let last: unknown;
+  for (const select of selects) {
+    try {
+      return await rest<Row[]>(`daily_scores?${filter}&select=${select}`) ?? [];
+    } catch (error) {
+      last = error;
+      if (!(error instanceof StoreError) || !/strokes|reaction|42703|PGRST204/i.test(error.message)) throw error;
+    }
+  }
+  throw last;
+}
+
+export async function listDailyScores(): Promise<StoredScore[]> {
+  const rows = await selectRows("order=score.desc,created_at.desc&limit=400");
+  return bestByPlace(rows.flatMap((row) => {
+    const score = asScore(row);
+    return score ? [score] : [];
+  }));
+}
+
+async function insertAttempt(payload: Record<string, unknown>): Promise<void> {
   const body = { ...payload };
-  if (strokes) body.strokes = strokes;
-  try {
-    await rest(path, {
-      method,
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    if (!strokes || !(error instanceof StoreError) || !/strokes|PGRST204/i.test(error.message)) throw error;
-    delete body.strokes;
-    await rest(path, {
-      method,
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(body),
-    });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await rest("daily_scores", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(body),
+      });
+      return;
+    } catch (error) {
+      if (!(error instanceof StoreError) || !/42703|PGRST204/i.test(error.message)) throw error;
+      if (/strokes/i.test(error.message) && "strokes" in body) {
+        delete body.strokes;
+        continue;
+      }
+      if (/reaction/i.test(error.message) && "reaction" in body) {
+        delete body.reaction;
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
 export type SavedDrawing = {
+  id: string;
   countryId: string;
   score: number;
   day: string;
   strokes: Stroke[] | null;
+  reaction: number;
 };
 
 export async function listPlayerDrawings(nickname: string): Promise<SavedDrawing[]> {
-  const rows = await rest<Array<SavedDrawing & { country_id: string; strokes: unknown }>>(
-    `daily_scores?nickname=eq.${encodeURIComponent(nickname)}&select=country_id,score,day,strokes,created_at&order=created_at.desc&limit=60`,
-  );
-  return (rows ?? []).map((row) => ({
-    countryId: row.country_id,
-    score: row.score,
-    day: row.day,
-    strokes: Array.isArray(row.strokes) ? (row.strokes as Stroke[]) : null,
-  }));
+  const rows = await selectRows(`nickname=eq.${encodeURIComponent(nickname)}&order=created_at.desc&limit=80`);
+  return rows.flatMap((row) => {
+    const score = asScore(row);
+    if (!score) return [];
+    return [{
+      id: score.id,
+      countryId: score.countryId,
+      score: score.score,
+      day: row.day ?? "",
+      strokes: score.strokes,
+      reaction: score.reaction,
+    }];
+  });
 }
 
 export async function saveDailyScore(input: {
@@ -111,44 +152,17 @@ export async function saveDailyScore(input: {
   score: number;
   day: string;
   strokes: Stroke[] | null;
-}): Promise<{ score: number; kept: boolean }> {
-  const scopedKey = `${input.nicknameKey}:${input.countryId}`;
-  const existing = await rest<Row[]>(
-    `daily_scores?day=eq.${input.day}&or=(nickname_key.eq.${encodeURIComponent(scopedKey)},and(nickname_key.eq.${encodeURIComponent(input.nicknameKey)},country_id.eq.${input.countryId}))&select=id,nickname,score,country_id&limit=1`,
-  );
-  const current = existing?.[0] ?? null;
-  const decision = nextBest(current?.score ?? null, input.score);
-  if (!decision.replace) return { score: decision.score, kept: true };
-  if (current) {
-    await writeRow(`daily_scores?id=eq.${current.id}`, "PATCH", {
-      score: input.score,
-      country_id: input.countryId,
-      nickname_key: scopedKey,
-    }, input.strokes);
-    return { score: input.score, kept: false };
-  }
-  try {
-    await writeRow("daily_scores", "POST", {
-      nickname: input.nickname,
-      nickname_key: scopedKey,
-      country_id: input.countryId,
-      score: input.score,
-      day: input.day,
-    }, input.strokes);
-  } catch (error) {
-    if (!(error instanceof StoreError) || error.status !== 409) throw error;
-    const again = await rest<Row[]>(
-      `daily_scores?day=eq.${input.day}&or=(nickname_key.eq.${encodeURIComponent(scopedKey)},and(nickname_key.eq.${encodeURIComponent(input.nicknameKey)},country_id.eq.${input.countryId}))&select=id,nickname,score,country_id&limit=1`,
-    );
-    const raced = again?.[0];
-    if (!raced) throw error;
-    const retry = nextBest(raced.score, input.score);
-    if (!retry.replace) return { score: retry.score, kept: true };
-    await writeRow(`daily_scores?id=eq.${raced.id}`, "PATCH", {
-      score: input.score,
-      country_id: input.countryId,
-      nickname_key: scopedKey,
-    }, input.strokes);
-  }
-  return { score: input.score, kept: false };
+  reaction: number;
+}): Promise<{ score: number }> {
+  const attemptKey = `${input.nicknameKey}:${input.countryId}:${crypto.randomUUID()}`;
+  await insertAttempt({
+    nickname: input.nickname,
+    nickname_key: attemptKey,
+    country_id: input.countryId,
+    score: input.score,
+    day: input.day,
+    strokes: input.strokes,
+    reaction: input.reaction,
+  });
+  return { score: input.score };
 }

@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -14,10 +16,11 @@ import {
   Undo2,
 } from "lucide-react";
 import { countries, findPlace, usStates } from "@/lib/places";
-import { nicknameStorageKey, type DailyBoard } from "@/lib/board";
+import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
 import { dailyCountry } from "@/lib/daily";
 import { ensurePlayerName } from "@/lib/nicknames";
+import { compareHref, drawHref, parseRoute, placeHref, playerHref, resultHref } from "@/lib/routes";
 import DrawingBoard from "./drawing-board";
 import {
   normalize,
@@ -28,14 +31,17 @@ import {
 } from "@/lib/scoring";
 import { resultImage } from "@/lib/share";
 
-type Phase = "setup" | "drawing" | "result" | "archive";
+type Phase = "setup" | "drawing" | "result" | "archive" | "scores" | "compare";
 type SavedMap = {
+  id: string;
   countryId: string;
   countryName: string;
   flag: string;
+  path: string;
   score: number;
   day: string;
   strokes: Stroke[] | null;
+  reaction: number;
 };
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v2";
@@ -63,6 +69,23 @@ function IconLabel({
   );
 }
 
+function MiniMaps({ entry }: { entry: Pick<BoardEntry, "strokes" | "path" | "countryName"> }) {
+  return (
+    <span className="mini-maps" aria-hidden="true">
+      <svg viewBox="0 0 600 400">
+        <g stroke="#6746eb" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          {entry.strokes ? normalize(entry.strokes).map((stroke, index) => (
+            <path key={index} d={strokePath(stroke)} />
+          )) : null}
+        </g>
+      </svg>
+      <svg viewBox="0 0 600 400">
+        <path d={entry.path} fill="#e9e4fd" stroke="#6746eb" strokeWidth="8" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 function Standings({
   board,
   nickname,
@@ -73,51 +96,58 @@ function Standings({
   posting: boolean;
 }) {
   if (board && !board.configured) return null;
+  const entries = board?.entries ?? [];
   return (
-    <section className="standings" aria-label="Today's leaderboard" aria-busy={board == null}>
+    <section className="standings" aria-label="Leaderboard" aria-busy={board == null}>
       <h2>
-        <Trophy size={18} aria-hidden="true" /> Today’s board
+        <Trophy size={18} aria-hidden="true" /> Leaderboard
       </h2>
-      <p className="standings-note">
-        Best score today, from any country.
-        {nickname ? ` You are ${nickname}.` : ""}
-      </p>
+      <p className="standings-note">All-time highs. Tap a row to see the drawing.</p>
       {board == null ? (
         <div aria-hidden="true">
           <div className="standing-skeleton" />
           <div className="standing-skeleton" />
           <div className="standing-skeleton" />
         </div>
-      ) : board.entries.length ? (
+      ) : entries.length ? (
         <ol className="standing-list">
-          {board.entries.map((entry, index) => (
-            <li
-              key={`${entry.nickname}-${entry.countryId}`}
-              className={entry.nickname === nickname ? "standing-you" : undefined}
-            >
-              <span className="standing-rank">{index + 1}</span>
-              <span>
-                <strong>{entry.nickname}</strong>
-                <span className="standing-country">{entry.flag} {entry.countryName}</span>
-              </span>
-              <b>{entry.score}%</b>
+          {entries.map((entry, index) => (
+            <li key={entry.id}>
+              <Link href={compareHref(entry.nickname, entry.id)}>
+                <span className="standing-rank">{index + 1}</span>
+                <span>
+                  <strong>
+                    {entry.nickname}
+                    {entry.nickname === nickname ? " (you)" : ""}
+                  </strong>
+                  <span className="standing-country">{entry.countryName}</span>
+                </span>
+                <MiniMaps entry={entry} />
+                <b>{entry.score}%</b>
+              </Link>
             </li>
           ))}
         </ol>
       ) : (
-        <p className="daily-empty">{posting ? "Saving your score…" : "No scores yet. Yours can be first."}</p>
+        <p className="daily-empty">{posting ? "Saving your score…" : "No scores yet."}</p>
       )}
     </section>
   );
 }
 
 export default function Game({ initialCountryId }: { initialCountryId?: string } = {}) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("setup");
   const [country, setCountry] = useState(() => (initialCountryId && findPlace(initialCountryId)) || defaultMap);
   const [pack, setPack] = useState<"country" | "state">("country");
+  const [query, setQuery] = useState("");
+  const [roundId, setRoundId] = useState("");
   const [choice, setChoice] = useState<"today" | "custom">("today");
   const [customId, setCustomId] = useState("");
   const [mapsSaved, setMapsSaved] = useState<SavedMap[] | null>(null);
+  const [watched, setWatched] = useState("");
+  const [watchedPlace, setWatchedPlace] = useState("");
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [score, setScore] = useState(0);
   const [reactionIndex, setReactionIndex] = useState(0);
@@ -147,7 +177,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           Object.fromEntries(
             Object.entries(saved).filter(
               ([key, value]) =>
-                /^\d{3}$/.test(key) &&
+                (/^\d{3}$/.test(key) || /^S\d{2}$/.test(key)) &&
                 typeof value === "number" &&
                 Number.isFinite(value) &&
                 value >= 0 &&
@@ -159,23 +189,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       /* Private browsing can disable storage. The game still works. */
     }
     const today = dailyCountry();
-    const params = new URLSearchParams(location.search);
-    const linked = findPlace(params.get("country") ?? "");
     setTodayId(today.id);
-    if (linked && linked.id !== today.id) {
-      setChoice("custom");
-      setCustomId(linked.id);
-      setCountry(linked);
-      if (usStates.some((state) => state.id === linked.id)) setPack("state");
-    } else {
-      setChoice("today");
-      setCountry(today);
-    }
-    const beat = parseBeat(params.get("beat"));
-    if (beat != null && linked) {
-      setChallenge({ countryId: linked.id, score: beat });
-      setToast(`Friend challenge loaded. Beat ${beat}%.`);
-    }
     const name = ensurePlayerName(localStorage.getItem(nicknameStorageKey));
     try {
       localStorage.setItem(nicknameStorageKey, name);
@@ -185,6 +199,61 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setNickname(name);
     setReady(true);
   }, []);
+  useEffect(() => {
+    const route = parseRoute(pathname);
+    const today = dailyCountry();
+    setTodayId(today.id);
+    const beat = parseBeat(new URLSearchParams(location.search).get("beat"));
+    if (route.view === "home") {
+      const linked = findPlace(new URLSearchParams(location.search).get("country") ?? "");
+      if (linked && linked.id !== today.id) {
+        router.replace(`${placeHref(linked.id)}${beat != null ? `?beat=${beat}` : ""}`);
+        return;
+      }
+      setChoice("today");
+      setCountry(today);
+      phaseRef.current = "setup";
+      setPhase("setup");
+      if (beat != null) setChallenge({ countryId: today.id, score: beat });
+      return;
+    }
+    if (route.view === "place" || route.view === "draw" || route.view === "result") {
+      const place = findPlace(route.placeId);
+      if (!place) {
+        router.replace("/");
+        return;
+      }
+      setCountry(place);
+      const isToday = place.id === today.id;
+      setChoice(isToday ? "today" : "custom");
+      setCustomId(isToday ? "" : place.id);
+      if (usStates.some((state) => state.id === place.id)) setPack("state");
+      const next = route.view === "draw" ? "drawing" : route.view === "result" ? "result" : "setup";
+      phaseRef.current = next;
+      setPhase(next);
+      if (beat != null) setChallenge({ countryId: place.id, score: beat });
+      return;
+    }
+    if (route.view === "scores") {
+      phaseRef.current = "scores";
+      setPhase("scores");
+      return;
+    }
+    if (route.view === "player") {
+      setWatched(route.player);
+      setMapsSaved(null);
+      phaseRef.current = "archive";
+      setPhase("archive");
+      return;
+    }
+    if (route.view === "compare") {
+      setWatched(route.player);
+      setWatchedPlace(route.placeId);
+      setMapsSaved(null);
+      phaseRef.current = "compare";
+      setPhase("compare");
+    }
+  }, [pathname, router]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 4500);
@@ -201,6 +270,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     const result = shapeScore(drawing, reference);
     setScore(result);
     setReactionIndex(Math.floor(Math.random() * 10));
+    setRoundId(crypto.randomUUID());
     setStrokes(drawing);
     setPhase("result");
     const key = country.id;
@@ -212,7 +282,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     } catch {
       /* Best scores are optional. */
     }
-  }, [country, bests]);
+    router.push(resultHref(country.id));
+  }, [country, bests, router]);
 
   useEffect(() => {
     if (phase === "result") titleRef.current?.focus();
@@ -234,9 +305,9 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   }, []);
 
   useEffect(() => {
-    if (phase !== "archive" || !nickname) return;
+    if ((phase !== "archive" && phase !== "compare") || !watched) return;
     let cancel = false;
-    fetch(`/api/drawings?nickname=${encodeURIComponent(nickname)}`)
+    fetch(`/api/drawings?nickname=${encodeURIComponent(watched)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject()))
       .then((data: { drawings?: SavedMap[] }) => {
         if (!cancel) setMapsSaved(data.drawings ?? []);
@@ -247,19 +318,24 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     return () => {
       cancel = true;
     };
-  }, [phase, nickname]);
+  }, [phase, watched]);
 
   useEffect(() => {
-    if (phase !== "result" || !nickname) return;
-    const roundKey = `${country.id}:${score}:${nickname}`;
-    if (postedRound.current === roundKey) return;
-    postedRound.current = roundKey;
+    if (phase !== "result" || !nickname || !roundId) return;
+    if (postedRound.current === roundId) return;
+    postedRound.current = roundId;
     let cancel = false;
     setPosting(true);
     fetch("/api/scores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname, countryId: country.id, score, strokes: ink.current }),
+      body: JSON.stringify({
+        nickname,
+        countryId: country.id,
+        score,
+        strokes: ink.current,
+        reaction: reactionIndex,
+      }),
     })
       .then(async (response) => {
         const data = await response.json().catch(() => null);
@@ -270,7 +346,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           return;
         }
         if (data?.board?.configured) setBoard(data.board);
-        if (data?.kept) setToast(`Your best for today stays at ${data.score}%.`);
       })
       .catch(() => {
         if (cancel) return;
@@ -283,7 +358,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     return () => {
       cancel = true;
     };
-  }, [phase, score, nickname, country.id]);
+  }, [phase, score, nickname, country.id, roundId, reactionIndex]);
 
   const changeInk = (value: Stroke[]) => {
     ink.current = value;
@@ -291,23 +366,19 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   };
   const acceptInput = () => phaseRef.current === "drawing";
   const openArchive = () => {
-    setMapsSaved(null);
-    setPhase("archive");
+    if (nickname) router.push(playerHref(nickname));
   };
   const start = () => {
     if (!playPlace) return;
     setCountry(playPlace);
     changeInk([]);
-    phaseRef.current = "drawing";
-    setPhase("drawing");
     setLinkFallback("");
     setToast("");
+    router.push(drawHref(playPlace.id));
   };
   const reset = () => {
-    phaseRef.current = "setup";
-    setPhase("setup");
-    changeInk([]);
-    setLinkFallback("");
+    const todayPlace = findPlace(todayId);
+    router.push(todayPlace && country.id !== todayPlace.id ? placeHref(country.id) : "/");
   };
   const save = async () => {
     setBusy(true);
@@ -328,8 +399,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   };
   const share = async () => {
     setBusy(true);
-    const url = new URL(location.origin);
-    url.searchParams.set("country", country.id);
+    const url = new URL(placeHref(country.id), location.origin);
     url.searchParams.set("beat", String(score));
     const text = `I drew ${country.name} and got ${score}% shape match on Borderline. Can you beat that?`;
     try {
@@ -363,6 +433,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   };
   const today = findPlace(todayId);
   const choices = pack === "state" ? usStates : countries;
+  const needle = query.trim().toLowerCase();
+  const matches = needle.length < 1
+    ? []
+    : choices.filter((place) => place.name.toLowerCase().includes(needle)).slice(0, 6);
   const customPlace = findPlace(customId);
   const playPlace = choice === "today" ? today : customPlace;
   const challenged = challenge?.countryId === country.id ? challenge : null;
@@ -372,7 +446,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       <header className="topbar">
         <button
           className="wordmark"
-          onClick={reset}
+          onClick={() => router.push("/")}
           disabled={phase === "drawing"}
           aria-label="Borderline home"
         >
@@ -381,13 +455,16 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           </span>
           borderline<span className="brand-dot">.</span>
         </button>
-        <button
-          className="text-button maps-link"
-          onClick={openArchive}
-          disabled={phase === "drawing" || phase === "archive"}
-        >
-          Your maps
-        </button>
+        <div className="top-actions">
+          {nickname && <span className="whoami">{nickname}</span>}
+          <button
+            className="text-button maps-link"
+            onClick={openArchive}
+            disabled={phase === "drawing" || !nickname}
+          >
+            Your maps
+          </button>
+        </div>
       </header>
 
       <main>
@@ -401,16 +478,15 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             </div>
             <div className="home-stage">
               <div className="setup-card simple-setup">
-                <p className="simple-country">What will you draw?</p>
+                <p className="simple-country">Draw a place</p>
                 <button
                   type="button"
                   className="day-choice today-choice"
                   aria-pressed={choice === "today"}
                   disabled={!today}
                   onClick={() => {
-                    if (!today) return;
-                    setChoice("today");
-                    setCountry(today);
+                    setQuery("");
+                    router.push("/");
                   }}
                 >
                   {today && <PlaceMark value={today.flag} />}
@@ -419,7 +495,16 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                     <strong>{today?.name ?? "One moment…"}</strong>
                   </span>
                 </button>
-                <p className="simple-country own-label">Or pick another</p>
+                <label className="place-search" htmlFor="place">
+                  Find a country or state
+                  <input
+                    id="place"
+                    value={query}
+                    placeholder="Italy, California…"
+                    autoComplete="off"
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </label>
                 <div className="pack-toggle" role="group" aria-label="Country or state list">
                   <button
                     type="button"
@@ -442,35 +527,31 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                     State
                   </button>
                 </div>
-                <label className="sr-only" htmlFor="place">
-                  {pack === "state" ? "Choose a state" : "Choose a country"}
-                </label>
-                <select
-                  id="place"
-                  className={choice === "custom" && playPlace ? "is-target" : undefined}
-                  value={choice === "custom" && choices.some((place) => place.id === customId) ? customId : ""}
-                  onChange={(event) => {
-                    const place = choices.find((item) => item.id === event.target.value);
-                    if (!place) {
-                      setCustomId("");
-                      setChoice("custom");
-                      return;
-                    }
-                    if (place.id === today?.id) {
-                      setChoice("today");
-                      setCountry(place);
-                      return;
-                    }
-                    setCustomId(place.id);
-                    setChoice("custom");
-                    setCountry(place);
-                  }}
-                >
-                  <option value="">{pack === "state" ? "Choose a state" : "Choose a country"}</option>
-                  {choices.map((place) => (
-                    <option key={place.id} value={place.id}>{place.name}</option>
-                  ))}
-                </select>
+                {needle.length > 0 && (
+                  <ul className="place-results">
+                    {matches.length ? matches.map((place) => (
+                      <li key={place.id}>
+                        <button
+                          type="button"
+                          className={choice === "custom" && place.id === customId ? "is-target" : undefined}
+                          onClick={() => {
+                            setQuery(place.name);
+                            if (place.id === today?.id) {
+                              router.push("/");
+                              return;
+                            }
+                            router.push(placeHref(place.id));
+                          }}
+                        >
+                          <PlaceMark value={place.flag} />
+                          <span>{place.name}</span>
+                        </button>
+                      </li>
+                    )) : (
+                      <li className="place-empty">No {pack === "state" ? "state" : "country"} matches that.</li>
+                    )}
+                  </ul>
+                )}
                 {challenged && <p className="setup-note">Beat {challenged.score}%.</p>}
                 <button className="primary start-button" onClick={start} disabled={!ready || !playPlace}>
                   <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : pack === "state" ? "Choose a state" : "Choose a country"}</IconLabel>
@@ -669,8 +750,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         {phase === "archive" && (
           <section className="archive" aria-label="Your maps">
             <div className="archive-heading">
-              <h1>Your maps</h1>
-              <p>{nickname ? `${nickname} · each place you have drawn` : "Draw a place and it will be kept here."}</p>
+              <h1>{watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
+              <p>{watched ? `${watched}${watched === nickname ? " (you)" : ""} · every attempt` : "Draw a place and it will be kept here."}</p>
             </div>
             {mapsSaved == null ? (
               <div className="archive-grid" aria-hidden="true">
@@ -680,7 +761,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             ) : mapsSaved.length ? (
               <div className="archive-grid">
                 {mapsSaved.map((item) => (
-                  <article key={`${item.countryId}-${item.day}`} className="archive-card">
+                  <Link key={item.id} href={compareHref(watched, item.id)} className="archive-card">
                     <div className="archive-paper">
                       <svg viewBox="0 0 600 400" role="img" aria-label={`Your drawing of ${item.countryName}`}>
                         <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
@@ -695,7 +776,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                       <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
                       <span>{item.score}% · {item.day}</span>
                     </div>
-                  </article>
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -706,6 +787,85 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             </button>
           </section>
         )}
+
+        {phase === "scores" && (
+          <section className="archive" aria-label="Leaderboard">
+            <Standings board={board} nickname={nickname} posting={posting} />
+          </section>
+        )}
+
+        {phase === "compare" && (() => {
+          const drawing = mapsSaved?.find((item) => item.id === watchedPlace)
+            ?? mapsSaved?.find((item) => item.countryId === watchedPlace);
+          const place = findPlace(drawing?.countryId ?? watchedPlace);
+          const joke = drawing ? verdict(drawing.score, !drawing.strokes?.length, drawing.reaction ?? 0) : null;
+          const others = mapsSaved?.filter((item) => item.id !== drawing?.id) ?? [];
+          return (
+            <section className="result-screen" aria-label="Drawing comparison">
+              <div className="result-heading">
+                <span className="eyebrow">{watched}{watched === nickname ? " (you)" : ""}</span>
+                <h1>
+                  {joke ? joke.title : place ? `${watched} drew ${place.name}` : "Loading the drawing…"}{" "}
+                  {joke && <span aria-hidden="true">{joke.emoji}</span>}
+                </h1>
+                <p>
+                  {mapsSaved == null
+                    ? "Loading the drawing…"
+                    : drawing
+                      ? `${joke?.line} ${drawing.score}% on ${place?.name ?? "this place"}.`
+                      : "No drawing stored for this attempt."}
+                </p>
+              </div>
+              {place && (
+                <div className="result-grid">
+                  <div className="result-map">
+                    <div className="result-map-top">
+                      <span className="map-label purple"><Pencil size={16} /> THEIR DRAWING</span>
+                    </div>
+                    <div className="result-paper">
+                      <svg viewBox="0 0 600 400" role="img" aria-label={`${watched}'s drawing of ${place.name}`}>
+                        <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                          {drawing?.strokes ? normalize(drawing.strokes).map((stroke, index) => (
+                            <path key={index} d={strokePath(stroke)} />
+                          )) : null}
+                        </g>
+                      </svg>
+                      {!drawing?.strokes && <span className="empty-result">The drawing was not stored.</span>}
+                    </div>
+                  </div>
+                  <div className="result-map">
+                    <div className="result-map-top">
+                      <span className="map-label"><Globe2 size={16} /> THE REAL SHAPE</span>
+                    </div>
+                    <div className="result-paper real-map">
+                      <svg viewBox="0 0 600 400" role="img" aria-label={`Real outline of ${place.name}`}>
+                        <path d={place.path} fill="#e9e4fd" stroke="#6746eb" strokeWidth="2.5" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {others.length > 0 && (
+                <div className="more-maps">
+                  <h2>More from {watched}</h2>
+                  <div className="archive-grid">
+                    {others.map((item) => (
+                      <Link key={item.id} href={compareHref(watched, item.id)} className="archive-card">
+                        <div className="archive-meta">
+                          <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
+                          <span>{item.score}%</span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button className="back-button" onClick={() => router.push(playerHref(watched))}>
+                <IconLabel icon={ArrowLeft}>All of {watched === nickname ? "your" : "their"} maps</IconLabel>
+              </button>
+            </section>
+          );
+        })()}
       </main>
       <footer className="compact-footer">
         <nav className="creator-footer" aria-label="Creator links">

@@ -13,12 +13,15 @@ export async function GET(request: Request) {
       const place = findPlace(row.countryId);
       if (!place) return [];
       return [{
+        id: row.id,
         countryId: place.id,
         countryName: place.name,
         flag: place.flag,
+        path: place.path,
         score: row.score,
         day: row.day,
         strokes: row.strokes,
+        reaction: row.reaction,
       }];
     });
     return Response.json({ drawings });

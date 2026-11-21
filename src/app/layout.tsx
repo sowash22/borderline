@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Game from "@/components/game";
 import "./globals.css";
 export const metadata: Metadata = {
   title: "Borderline — Draw a country. Question your geography.",
@@ -25,7 +26,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Game />
+      </body>
     </html>
   );
 }
