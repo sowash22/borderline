@@ -225,10 +225,15 @@ h1 {
   padding: 18px 0 12px;
 }
 .flag {
-  display: block;
-  font-size: 44px;
-  line-height: 1.1;
-  margin: 1px 0 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35em;
+  height: 1.35em;
+  font-size: 1.15em;
+  line-height: 1;
+  margin: 0;
+  flex: none;
 }
 .country-prompt h2 {
   font-size: 31px;
@@ -808,9 +813,14 @@ h1 {
   background: transparent;
   color: var(--muted);
   font-size: 12px;
-  display: flex;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin: 15px auto 0;
   padding: 10px;
+}
+.compare-back {
+  margin: 22px 0 0;
 }
 .back-button svg {
   width: 14px;
@@ -1057,10 +1067,6 @@ footer > span:first-child {
     flex-wrap: wrap;
     gap: 9px;
     padding: 17px 0 4px;
-  }
-  .flag {
-    font-size: 31px;
-    margin: 0;
   }
   .country-prompt h2 {
     font-size: 29px;
@@ -1656,6 +1662,7 @@ footer.compact-footer {
   gap: 10px;
 }
 .day-choice {
+  display: flex;
   width: 100%;
   min-height: 72px;
   padding: 10px 12px;
@@ -1750,8 +1757,12 @@ footer.compact-footer {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+  align-items: stretch;
 }
 .archive-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: white;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -1761,23 +1772,46 @@ footer.compact-footer {
 }
 .archive-paper {
   position: relative;
+  aspect-ratio: 3 / 2;
   background: var(--paper);
 }
-.archive-paper svg { display: block; width: 100%; height: auto; }
+.archive-paper svg { display: block; width: 100%; height: 100%; }
 .archive-meta {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+  min-height: 56px;
+  margin-top: auto;
   padding: 12px 14px;
   font-size: 14px;
+  line-height: 1.2;
 }
 .archive-meta strong {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
-.archive-meta span { color: var(--muted); }
+.archive-meta .flag,
+.archive-meta .place-code {
+  width: 36px;
+  height: 28px;
+  min-width: 36px;
+  margin: 0;
+  font-size: 16px;
+}
+.archive-meta span {
+  color: var(--muted);
+  flex: none;
+  white-space: nowrap;
+}
+.archive-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+}
 .archive-skeleton { height: 180px; }
 .more-maps { margin-top: 28px; }
 .more-maps h2 {

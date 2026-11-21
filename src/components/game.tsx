@@ -881,7 +881,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   </div>
                 </div>
               )}
-              <button className="back-button" onClick={() => router.push(playerHref(watched))}>
+              <button className="back-button compare-back" onClick={() => router.push(playerHref(watched))}>
                 <IconLabel icon={ArrowLeft}>All of {watched === nickname ? "your" : "their"} maps</IconLabel>
               </button>
             </section>
