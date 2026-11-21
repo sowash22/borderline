@@ -10,6 +10,7 @@ import {
   Linkedin,
   Pencil,
   RotateCcw,
+  Shuffle,
   Share2,
   Trash2,
   Trophy,
@@ -445,6 +446,21 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const customPlace = findPlace(customId);
   const playPlace = choice === "featured" ? featured : customPlace;
   const challenged = challenge?.countryId === country.id ? challenge : null;
+  const shuffle = () => {
+    const currentId = playPlace?.id ?? featuredId;
+    let next = randomPlace();
+    for (let attempt = 0; attempt < 8 && next.id === currentId; attempt += 1) next = randomPlace();
+    setFeaturedId(next.id);
+    setCountry(next);
+    setChoice("featured");
+    setCustomId("");
+    setQuery("");
+    setPack(usStates.some((state) => state.id === next.id) ? "state" : "country");
+    if (pathname !== "/") {
+      keepFeatured.current = true;
+      router.push("/");
+    }
+  };
 
   return (
     <div className="app-shell">
@@ -477,12 +493,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
               <h1>
-                I built this for my two-year-old to draw maps. Then I thought: why should kids have all the fun?
+                I built this for my little one to draw maps. Then I thought: why should kids have all the fun?
               </h1>
             </div>
             <div className="home-stage">
               <div className="setup-card simple-setup">
-                <p className="simple-country">Draw a place</p>
+                <p className="simple-country">Draw a map</p>
                 <button
                   type="button"
                   className="day-choice today-choice"
@@ -500,6 +516,9 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <span>
                     <strong>{featured?.name ?? "One moment…"}</strong>
                   </span>
+                </button>
+                <button type="button" className="text-button shuffle-button" onClick={shuffle} disabled={!featured}>
+                  <IconLabel icon={Shuffle}>Choose another</IconLabel>
                 </button>
                 <label className="place-search" htmlFor="place">
                   Find a country or state
