@@ -5,6 +5,7 @@ import { parseRoute } from "./routes";
 test("paths round-trip through the game routes", () => {
   assert.deepEqual(parseRoute("/"), { view: "home" });
   assert.deepEqual(parseRoute("/scores"), { view: "scores" });
+  assert.deepEqual(parseRoute("/leaderboard"), { view: "scores" });
   assert.deepEqual(parseRoute("/place/380"), { view: "place", placeId: "380" });
   assert.deepEqual(parseRoute("/place/S06/draw"), { view: "draw", placeId: "S06" });
   assert.deepEqual(parseRoute("/place/S06/result"), { view: "result", placeId: "S06" });

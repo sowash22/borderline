@@ -20,7 +20,7 @@ import { countries, findPlace, otherCountries, popularCountries, usStates } from
 import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
 import { ensurePlayerName } from "@/lib/nicknames";
-import { compareHref, drawHref, parseRoute, placeHref, playerHref, resultHref } from "@/lib/routes";
+import { compareHref, drawHref, parseRoute, placeHref, playerHref, resultHref, scoresHref } from "@/lib/routes";
 import DrawingBoard from "./drawing-board";
 import {
   normalize,
@@ -63,9 +63,28 @@ function daysAgo(day: string) {
   return `${days} days ago`;
 }
 
-function MapCard({ item, href, caption }: { item: SavedMap; href: string; caption: string }) {
-  return (
-    <Link href={href} className="archive-card">
+function MapCard({
+  item,
+  href,
+  caption,
+  open,
+}: {
+  item: SavedMap;
+  href?: string;
+  caption: string;
+  open?: boolean;
+}) {
+  const joke = open ? verdict(item.score, !item.strokes?.length, item.reaction) : null;
+  const body = (
+    <>
+      {joke && (
+        <div className="archive-story">
+          <p className="archive-story-title">
+            {joke.title} <span aria-hidden="true">{joke.emoji}</span>
+          </p>
+          <p>{joke.line}</p>
+        </div>
+      )}
       <div className="archive-paper">
         <div className="archive-half">
           <span className="archive-caption">{caption}</span>
@@ -92,8 +111,10 @@ function MapCard({ item, href, caption }: { item: SavedMap; href: string; captio
           <span className="archive-when">{daysAgo(item.day)}</span>
         </span>
       </div>
-    </Link>
+    </>
   );
+  if (open || !href) return <div className="archive-card is-open">{body}</div>;
+  return <Link href={href} className="archive-card">{body}</Link>;
 }
 
 function PlaceMark({ value }: { value: string }) {
@@ -139,28 +160,41 @@ function Standings({
   board,
   nickname,
   posting,
+  preview,
 }: {
   board: DailyBoard | null;
   nickname: string;
   posting: boolean;
+  preview?: boolean;
 }) {
   if (board && !board.configured) return null;
   const entries = board?.entries ?? [];
+  const shown = preview ? entries.slice(0, 6) : entries;
   return (
     <section className="standings" aria-label="Leaderboard" aria-busy={board == null}>
       <h2>
-        <Trophy size={18} aria-hidden="true" /> Leaderboard
+        {preview ? (
+          <Link href={scoresHref} className="standings-title">
+            <Trophy size={18} aria-hidden="true" /> Leaderboard
+          </Link>
+        ) : (
+          <>
+            <Trophy size={18} aria-hidden="true" /> Leaderboard
+          </>
+        )}
       </h2>
-      <p className="standings-note">All-time highs. Tap a row to see the drawing.</p>
+      <p className="standings-note">
+        {preview ? "All-time highs. Open the board to see every drawing." : "All-time highs. Open a drawing, then see more from that person."}
+      </p>
       {board == null ? (
         <div aria-hidden="true">
           <div className="standing-skeleton" />
           <div className="standing-skeleton" />
           <div className="standing-skeleton" />
         </div>
-      ) : entries.length ? (
+      ) : shown.length ? (
         <ol className="standing-list">
-          {entries.map((entry, index) => (
+          {shown.map((entry, index) => (
             <li key={entry.id}>
               <Link href={compareHref(entry.nickname, entry.id)}>
                 <span className="standing-rank">{index + 1}</span>
@@ -180,6 +214,9 @@ function Standings({
       ) : (
         <p className="daily-empty">{posting ? "Saving your score…" : "No scores yet."}</p>
       )}
+      {preview && entries.length > 0 && (
+        <Link className="standings-all" href={scoresHref}>See the full board</Link>
+      )}
     </section>
   );
 }
@@ -187,6 +224,7 @@ function Standings({
 export default function Game({ initialCountryId }: { initialCountryId?: string } = {}) {
   const pathname = usePathname();
   const router = useRouter();
+  const route = parseRoute(pathname);
   const [phase, setPhase] = useState<Phase>("setup");
   const [featuredId, setFeaturedId] = useState("");
   const [country, setCountry] = useState(() => (initialCountryId && findPlace(initialCountryId)) || defaultMap);
@@ -209,6 +247,13 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [board, setBoard] = useState<DailyBoard | null>(null);
   const [nickname, setNickname] = useState("");
   const [posting, setPosting] = useState(false);
+  const view: Phase =
+    route.view === "scores" ? "scores"
+    : route.view === "player" ? "archive"
+    : route.view === "compare" ? "compare"
+    : route.view === "draw" ? "drawing"
+    : route.view === "result" ? "result"
+    : phase;
   const phaseRef = useRef<Phase>("setup"),
     ink = useRef<Stroke[]>([]);
   const postedRound = useRef("");
@@ -352,7 +397,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   }, []);
 
   useEffect(() => {
-    if ((phase !== "archive" && phase !== "compare") || !watched) return;
+    if ((view !== "archive" && view !== "compare") || !watched) return;
     let cancel = false;
     fetch(`/api/drawings?nickname=${encodeURIComponent(watched)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject()))
@@ -365,7 +410,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     return () => {
       cancel = true;
     };
-  }, [phase, watched]);
+  }, [view, watched]);
 
   useEffect(() => {
     if (phase !== "result" || !nickname || !roundId) return;
@@ -501,7 +546,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         <button
           className="wordmark"
           onClick={() => router.push("/")}
-          disabled={phase === "drawing"}
+          disabled={view === "drawing"}
           aria-label="Borderline home"
         >
           <span className="brand-icon">
@@ -513,7 +558,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <button
             className="text-button maps-link"
             onClick={openArchive}
-            disabled={phase === "drawing" || !nickname}
+            disabled={view === "drawing" || !nickname}
           >
             Your maps
           </button>
@@ -521,7 +566,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       </header>
 
       <main>
-        {phase === "setup" && (
+        {view === "setup" && (
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
               <h1>
@@ -599,12 +644,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : "One moment…"}</IconLabel>
                 </button>
               </div>
-              <Standings board={board} nickname={nickname} posting={posting} />
+              <Standings board={board} nickname={nickname} posting={posting} preview />
             </div>
           </section>
         )}
 
-        {phase === "drawing" && (
+        {view === "drawing" && (
           <section className="play-screen" aria-label="Drawing round">
             <div className="play-heading">
               <div>
@@ -653,7 +698,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           </section>
         )}
 
-        {phase === "result" && (
+        {view === "result" && (
           <section className="result-screen" aria-label="Round results">
             <div className="result-heading">
               <span className="eyebrow">THE MOMENT OF TRUTH</span>
@@ -762,7 +807,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 <IconLabel icon={RotateCcw}>Try {country.name} again</IconLabel>
               </button>
             </div>
-            <Standings board={board} nickname={nickname} posting={posting} />
+            <Standings board={board} nickname={nickname} posting={posting} preview />
             <div className="share-actions">
               <button className="text-button" disabled={busy} onClick={share}>
                 <IconLabel icon={Share2}>Challenge a friend</IconLabel>
@@ -789,10 +834,11 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           </section>
         )}
 
-        {phase === "archive" && (
+        {view === "archive" && (
           <section className="archive" aria-label="Your maps">
             <div className="archive-heading">
               <h1>{!watched || watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
+              <p>{!watched || watched === nickname ? "Open one to hear what the atlas said." : "Open one to see how they remember the world."}</p>
             </div>
             {mapsSaved == null ? (
               <div className="archive-grid" aria-hidden="true">
@@ -819,13 +865,17 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           </section>
         )}
 
-        {phase === "scores" && (
-          <section className="archive" aria-label="Leaderboard">
+        {view === "scores" && (
+          <section className="archive scores-page" aria-label="Leaderboard">
+            <div className="archive-heading">
+              <h1>Leaderboard</h1>
+              <p>Every all-time high. Open a drawing, then see more from that person.</p>
+            </div>
             <Standings board={board} nickname={nickname} posting={posting} />
           </section>
         )}
 
-        {phase === "compare" && (() => {
+        {view === "compare" && (() => {
           const drawing = mapsSaved?.find((item) => item.id === watchedPlace)
             ?? mapsSaved?.find((item) => item.countryId === watchedPlace);
           const others = mapsSaved?.filter((item) => item.id !== drawing?.id) ?? [];
@@ -834,6 +884,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             <section className="archive" aria-label={`${watched}'s maps`}>
               <div className="archive-heading">
                 <h1>{watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
+                <p>{watched === nickname ? "This one is open. The rest of your atlas is below." : "This is the drawing you opened. The rest of their atlas is below."}</p>
               </div>
               {mapsSaved == null ? (
                 <div className="archive-grid" aria-hidden="true">
@@ -843,13 +894,13 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               ) : drawing ? (
                 <>
                   <div className="archive-picked">
-                    <MapCard item={drawing} href={compareHref(watched, drawing.id)} caption={caption} />
+                    <MapCard item={drawing} caption={caption} open />
                   </div>
                   {others.length > 0 && (
-                    <div className="archive-grid">
-                      {others.map((item) => (
-                        <MapCard key={item.id} item={item} href={compareHref(watched, item.id)} caption={caption} />
-                      ))}
+                    <div className="archive-more">
+                      <Link className="more-from" href={playerHref(watched)}>
+                        {watched === nickname ? "See more from you" : `See more from ${watched}`}
+                      </Link>
                     </div>
                   )}
                 </>

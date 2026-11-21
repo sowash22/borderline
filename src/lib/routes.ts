@@ -7,7 +7,7 @@ export type GameRoute =
 
 export function parseRoute(pathname: string): GameRoute {
   const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  if (parts[0] === "scores") return { view: "scores" };
+  if (parts[0] === "scores" || parts[0] === "leaderboard") return { view: "scores" };
   if (parts[0] === "player" && parts[1] && parts[2]) {
     return { view: "compare", player: parts[1], placeId: parts[2] };
   }
@@ -18,6 +18,7 @@ export function parseRoute(pathname: string): GameRoute {
   return { view: "home" };
 }
 
+export const scoresHref = "/leaderboard";
 export const placeHref = (id: string) => `/place/${id}`;
 export const drawHref = (id: string) => `/place/${id}/draw`;
 export const resultHref = (id: string) => `/place/${id}/result`;
