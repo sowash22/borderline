@@ -217,9 +217,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       previousPath.current = pathname;
       let place = findPlace(featuredId);
       if (!place || (arriving && !keepFeatured.current)) {
-        place = randomPlace();
-        setFeaturedId(place.id);
-        setPack(usStates.some((state) => state.id === place.id) ? "state" : "country");
+        const next = randomPlace();
+        place = next;
+        setFeaturedId(next.id);
+        setPack(usStates.some((state) => state.id === next.id) ? "state" : "country");
       }
       keepFeatured.current = false;
       setCountry(place);
