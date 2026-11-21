@@ -16,7 +16,7 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { countries, findPlace, usStates } from "@/lib/places";
+import { countries, findPlace, otherCountries, popularCountries, usStates } from "@/lib/places";
 import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
 import { ensurePlayerName } from "@/lib/nicknames";
@@ -50,6 +50,50 @@ const places = [...countries, ...usStates];
 
 function randomPlace() {
   return places[Math.floor(Math.random() * places.length)] ?? defaultMap;
+}
+
+function daysAgo(day: string) {
+  const then = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(then)) return "";
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const days = Math.round((today - then) / 86400000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+function MapCard({ item, href, caption }: { item: SavedMap; href: string; caption: string }) {
+  return (
+    <Link href={href} className="archive-card">
+      <div className="archive-paper">
+        <div className="archive-half">
+          <span className="archive-caption">{caption}</span>
+          <svg viewBox="0 0 600 400" role="img" aria-label={`Drawing of ${item.countryName}`}>
+            <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+              {item.strokes ? normalize(item.strokes).map((stroke, index) => (
+                <path key={index} d={strokePath(stroke)} />
+              )) : null}
+            </g>
+          </svg>
+          {!item.strokes && <span className="empty-result">Score only</span>}
+        </div>
+        <div className="archive-half archive-real">
+          <span className="archive-caption">Real</span>
+          <svg viewBox="0 0 600 400" role="img" aria-label={`Real outline of ${item.countryName}`}>
+            <path d={item.path} fill="#e9e4fd" stroke="#6746eb" strokeWidth="2.5" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+      <div className="archive-meta">
+        <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
+        <span className="archive-result">
+          <b className="archive-score">{item.score}%</b>
+          <span className="archive-when">{daysAgo(item.day)}</span>
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 function PlaceMark({ value }: { value: string }) {
@@ -146,8 +190,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [phase, setPhase] = useState<Phase>("setup");
   const [featuredId, setFeaturedId] = useState("");
   const [country, setCountry] = useState(() => (initialCountryId && findPlace(initialCountryId)) || defaultMap);
-  const [pack, setPack] = useState<"country" | "state">("country");
-  const [query, setQuery] = useState("");
   const [roundId, setRoundId] = useState("");
   const [choice, setChoice] = useState<"featured" | "custom">("featured");
   const [customId, setCustomId] = useState("");
@@ -221,7 +263,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         const next = randomPlace();
         place = next;
         setFeaturedId(next.id);
-        setPack(usStates.some((state) => state.id === next.id) ? "state" : "country");
       }
       keepFeatured.current = false;
       setCountry(place);
@@ -241,7 +282,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       setCountry(place);
       setChoice("custom");
       setCustomId(place.id);
-      if (usStates.some((state) => state.id === place.id)) setPack("state");
       const next = route.view === "draw" ? "drawing" : route.view === "result" ? "result" : "setup";
       phaseRef.current = next;
       setPhase(next);
@@ -438,11 +478,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     }
   };
   const featured = findPlace(featuredId);
-  const choices = pack === "state" ? usStates : countries;
-  const needle = query.trim().toLowerCase();
-  const matches = needle.length < 1
-    ? []
-    : choices.filter((place) => place.name.toLowerCase().includes(needle)).slice(0, 6);
   const customPlace = findPlace(customId);
   const playPlace = choice === "featured" ? featured : customPlace;
   const challenged = challenge?.countryId === country.id ? challenge : null;
@@ -454,8 +489,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     setCountry(next);
     setChoice("featured");
     setCustomId("");
-    setQuery("");
-    setPack(usStates.some((state) => state.id === next.id) ? "state" : "country");
     if (pathname !== "/") {
       keepFeatured.current = true;
       router.push("/");
@@ -477,7 +510,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           borderline<span className="brand-dot">.</span>
         </button>
         <div className="top-actions">
-          {nickname && <span className="whoami">{nickname}</span>}
           <button
             className="text-button maps-link"
             onClick={openArchive}
@@ -505,7 +537,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                   aria-pressed={choice === "featured"}
                   disabled={!featured}
                   onClick={() => {
-                    setQuery("");
                     keepFeatured.current = true;
                     setChoice("featured");
                     if (featured) setCountry(featured);
@@ -520,62 +551,52 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 <button type="button" className="text-button shuffle-button" onClick={shuffle} disabled={!featured}>
                   <IconLabel icon={Shuffle}>Choose another</IconLabel>
                 </button>
-                <label className="place-search" htmlFor="place">
-                  Find a country or state
-                  <input
-                    id="place"
-                    value={query}
-                    placeholder="Italy, California…"
-                    autoComplete="off"
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </label>
-                <div className="pack-toggle" role="group" aria-label="Country or state list">
-                  <button
-                    type="button"
-                    aria-pressed={pack === "country"}
-                    onClick={() => {
-                      setPack("country");
-                      if (choice === "custom" && !countries.some((place) => place.id === customId)) setCustomId("");
-                    }}
-                  >
+                <div className="place-picks">
+                  <label className="place-search" htmlFor="country-pick">
                     Country
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={pack === "state"}
-                    onClick={() => {
-                      setPack("state");
-                      if (choice === "custom" && !usStates.some((place) => place.id === customId)) setCustomId("");
-                    }}
-                  >
-                    State
-                  </button>
+                    <select
+                      id="country-pick"
+                      value={choice === "custom" && countries.some((place) => place.id === customId) ? customId : ""}
+                      onChange={(event) => {
+                        const place = findPlace(event.target.value);
+                        if (!place) return;
+                        router.push(placeHref(place.id));
+                      }}
+                    >
+                      <option value="">Choose a country</option>
+                      <optgroup label="Familiar">
+                        {popularCountries.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="All countries">
+                        {otherCountries.map((place) => (
+                          <option key={place.id} value={place.id}>{place.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </label>
+                  <label className="place-search" htmlFor="state-pick">
+                    US state
+                    <select
+                      id="state-pick"
+                      value={choice === "custom" && usStates.some((place) => place.id === customId) ? customId : ""}
+                      onChange={(event) => {
+                        const place = findPlace(event.target.value);
+                        if (!place) return;
+                        router.push(placeHref(place.id));
+                      }}
+                    >
+                      <option value="">Choose a state</option>
+                      {usStates.map((place) => (
+                        <option key={place.id} value={place.id}>{place.name}</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-                {needle.length > 0 && (
-                  <ul className="place-results">
-                    {matches.length ? matches.map((place) => (
-                      <li key={place.id}>
-                        <button
-                          type="button"
-                          className={choice === "custom" && place.id === customId ? "is-target" : undefined}
-                          onClick={() => {
-                            setQuery(place.name);
-                            router.push(placeHref(place.id));
-                          }}
-                        >
-                          <PlaceMark value={place.flag} />
-                          <span>{place.name}</span>
-                        </button>
-                      </li>
-                    )) : (
-                      <li className="place-empty">No {pack === "state" ? "state" : "country"} matches that.</li>
-                    )}
-                  </ul>
-                )}
                 {challenged && <p className="setup-note">Beat {challenged.score}%.</p>}
                 <button className="primary start-button" onClick={start} disabled={!ready || !playPlace}>
-                  <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : choice === "featured" ? "One moment…" : pack === "state" ? "Choose a state" : "Choose a country"}</IconLabel>
+                  <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : "One moment…"}</IconLabel>
                 </button>
               </div>
               <Standings board={board} nickname={nickname} posting={posting} />
@@ -771,8 +792,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         {phase === "archive" && (
           <section className="archive" aria-label="Your maps">
             <div className="archive-heading">
-              <h1>{watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
-              <p>{watched ? `${watched}${watched === nickname ? " (you)" : ""} · every attempt` : "Draw a place and it will be kept here."}</p>
+              <h1>{!watched || watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
             </div>
             {mapsSaved == null ? (
               <div className="archive-grid" aria-hidden="true">
@@ -782,22 +802,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
             ) : mapsSaved.length ? (
               <div className="archive-grid">
                 {mapsSaved.map((item) => (
-                  <Link key={item.id} href={compareHref(watched, item.id)} className="archive-card">
-                    <div className="archive-paper">
-                      <svg viewBox="0 0 600 400" role="img" aria-label={`Your drawing of ${item.countryName}`}>
-                        <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
-                          {item.strokes ? normalize(item.strokes).map((stroke, index) => (
-                            <path key={index} d={strokePath(stroke)} />
-                          )) : null}
-                        </g>
-                      </svg>
-                      {!item.strokes && <span className="empty-result">Score only</span>}
-                    </div>
-                    <div className="archive-meta">
-                      <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
-                      <span>{item.score}% · {item.day}</span>
-                    </div>
-                  </Link>
+                  <MapCard
+                    key={item.id}
+                    item={item}
+                    href={compareHref(watched, item.id)}
+                    caption={watched === nickname ? "Yours" : "Theirs"}
+                  />
                 ))}
               </div>
             ) : (
@@ -818,72 +828,34 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         {phase === "compare" && (() => {
           const drawing = mapsSaved?.find((item) => item.id === watchedPlace)
             ?? mapsSaved?.find((item) => item.countryId === watchedPlace);
-          const place = findPlace(drawing?.countryId ?? watchedPlace);
-          const joke = drawing ? verdict(drawing.score, !drawing.strokes?.length, drawing.reaction ?? 0) : null;
           const others = mapsSaved?.filter((item) => item.id !== drawing?.id) ?? [];
+          const caption = watched === nickname ? "Yours" : "Theirs";
           return (
-            <section className="result-screen" aria-label="Drawing comparison">
-              <div className="result-heading">
-                <span className="eyebrow">{watched}{watched === nickname ? " (you)" : ""}</span>
-                <h1>
-                  {joke ? joke.title : place ? `${watched} drew ${place.name}` : "Loading the drawing…"}{" "}
-                  {joke && <span aria-hidden="true">{joke.emoji}</span>}
-                </h1>
-                <p>
-                  {mapsSaved == null
-                    ? "Loading the drawing…"
-                    : drawing
-                      ? `${joke?.line} ${drawing.score}% on ${place?.name ?? "this place"}.`
-                      : "No drawing stored for this attempt."}
-                </p>
+            <section className="archive" aria-label={`${watched}'s maps`}>
+              <div className="archive-heading">
+                <h1>{watched === nickname ? "Your maps" : `${watched}'s maps`}</h1>
               </div>
-              {place && (
-                <div className="result-grid">
-                  <div className="result-map">
-                    <div className="result-map-top">
-                      <span className="map-label purple"><Pencil size={16} /> THEIR DRAWING</span>
-                    </div>
-                    <div className="result-paper">
-                      <svg viewBox="0 0 600 400" role="img" aria-label={`${watched}'s drawing of ${place.name}`}>
-                        <g stroke="#6746eb" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none">
-                          {drawing?.strokes ? normalize(drawing.strokes).map((stroke, index) => (
-                            <path key={index} d={strokePath(stroke)} />
-                          )) : null}
-                        </g>
-                      </svg>
-                      {!drawing?.strokes && <span className="empty-result">The drawing was not stored.</span>}
-                    </div>
-                  </div>
-                  <div className="result-map">
-                    <div className="result-map-top">
-                      <span className="map-label"><Globe2 size={16} /> THE REAL SHAPE</span>
-                    </div>
-                    <div className="result-paper real-map">
-                      <svg viewBox="0 0 600 400" role="img" aria-label={`Real outline of ${place.name}`}>
-                        <path d={place.path} fill="#e9e4fd" stroke="#6746eb" strokeWidth="2.5" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  </div>
+              {mapsSaved == null ? (
+                <div className="archive-grid" aria-hidden="true">
+                  <div className="standing-skeleton archive-skeleton" />
+                  <div className="standing-skeleton archive-skeleton" />
                 </div>
-              )}
-              {others.length > 0 && (
-                <div className="more-maps">
-                  <h2>More from {watched}</h2>
-                  <div className="archive-grid">
-                    {others.map((item) => (
-                      <Link key={item.id} href={compareHref(watched, item.id)} className="archive-card">
-                        <div className="archive-meta">
-                          <strong><PlaceMark value={item.flag} /> {item.countryName}</strong>
-                          <span>{item.score}%</span>
-                        </div>
-                      </Link>
-                    ))}
+              ) : drawing ? (
+                <>
+                  <div className="archive-picked">
+                    <MapCard item={drawing} href={compareHref(watched, drawing.id)} caption={caption} />
                   </div>
-                </div>
+                  {others.length > 0 && (
+                    <div className="archive-grid">
+                      {others.map((item) => (
+                        <MapCard key={item.id} item={item} href={compareHref(watched, item.id)} caption={caption} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="archive-empty">No drawing stored for this attempt.</p>
               )}
-              <button className="back-button compare-back" onClick={() => router.push(playerHref(watched))}>
-                <IconLabel icon={ArrowLeft}>All of {watched === nickname ? "your" : "their"} maps</IconLabel>
-              </button>
             </section>
           );
         })()}
