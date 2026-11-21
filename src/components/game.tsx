@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   Download,
+  Github,
   Globe2,
   Linkedin,
   Pencil,
@@ -941,6 +942,9 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         <nav className="creator-footer" aria-label="Creator links">
           <a className="creator-name" href="https://www.linkedin.com/in/sowndarya-shanmugam/" target="_blank" rel="noopener noreferrer">
             Soundarya <span>Sanmugam</span>
+          </a>
+          <a className="creator-social" href="https://github.com/sowash22" target="_blank" rel="noopener noreferrer" aria-label="Soundarya Sanmugam on GitHub" title="GitHub">
+            <Github size={18} aria-hidden="true" />
           </a>
           <a className="creator-social" href="https://www.linkedin.com/in/sowndarya-shanmugam/" target="_blank" rel="noopener noreferrer" aria-label="Soundarya Sanmugam on LinkedIn" title="LinkedIn">
             <Linkedin size={18} aria-hidden="true" />

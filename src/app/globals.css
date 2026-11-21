@@ -1585,6 +1585,7 @@ footer {
   transition: color .15s, background .15s;
 }
 .creator-social:hover { color: var(--purple); background: #eee9ff; }
+.creator-social[title="GitHub"]:hover { color: #24292f; }
 .creator-social[title="LinkedIn"]:hover { color: #0077b5; }
 
 /* A single compact row on desktop and phones. */
