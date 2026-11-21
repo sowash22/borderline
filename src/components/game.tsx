@@ -18,7 +18,6 @@ import {
 import { countries, findPlace, usStates } from "@/lib/places";
 import { nicknameStorageKey, type BoardEntry, type DailyBoard } from "@/lib/board";
 import { challengeLine, parseBeat } from "@/lib/challenge";
-import { dailyCountry } from "@/lib/daily";
 import { ensurePlayerName } from "@/lib/nicknames";
 import { compareHref, drawHref, parseRoute, placeHref, playerHref, resultHref } from "@/lib/routes";
 import DrawingBoard from "./drawing-board";
@@ -46,6 +45,11 @@ type SavedMap = {
 type Bests = Record<string, number>;
 const storageKey = "borderline:bests:v2";
 const defaultMap = countries.find((map) => map.code === "IT")!;
+const places = [...countries, ...usStates];
+
+function randomPlace() {
+  return places[Math.floor(Math.random() * places.length)] ?? defaultMap;
+}
 
 function PlaceMark({ value }: { value: string }) {
   return (
@@ -139,11 +143,12 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const pathname = usePathname();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("setup");
+  const [featuredId, setFeaturedId] = useState("");
   const [country, setCountry] = useState(() => (initialCountryId && findPlace(initialCountryId)) || defaultMap);
   const [pack, setPack] = useState<"country" | "state">("country");
   const [query, setQuery] = useState("");
   const [roundId, setRoundId] = useState("");
-  const [choice, setChoice] = useState<"today" | "custom">("today");
+  const [choice, setChoice] = useState<"featured" | "custom">("featured");
   const [customId, setCustomId] = useState("");
   const [mapsSaved, setMapsSaved] = useState<SavedMap[] | null>(null);
   const [watched, setWatched] = useState("");
@@ -158,13 +163,14 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const [linkFallback, setLinkFallback] = useState("");
   const [ready, setReady] = useState(false);
   const [challenge, setChallenge] = useState<{ countryId: string; score: number } | null>(null);
-  const [todayId, setTodayId] = useState("");
   const [board, setBoard] = useState<DailyBoard | null>(null);
   const [nickname, setNickname] = useState("");
   const [posting, setPosting] = useState(false);
   const phaseRef = useRef<Phase>("setup"),
     ink = useRef<Stroke[]>([]);
   const postedRound = useRef("");
+  const previousPath = useRef<string | null>(null);
+  const keepFeatured = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const best = bests[country.id] ?? 0;
   const judgement = verdict(score, !strokes.length, reactionIndex);
@@ -188,8 +194,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     } catch {
       /* Private browsing can disable storage. The game still works. */
     }
-    const today = dailyCountry();
-    setTodayId(today.id);
     const name = ensurePlayerName(localStorage.getItem(nicknameStorageKey));
     try {
       localStorage.setItem(nicknameStorageKey, name);
@@ -201,22 +205,31 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   }, []);
   useEffect(() => {
     const route = parseRoute(pathname);
-    const today = dailyCountry();
-    setTodayId(today.id);
     const beat = parseBeat(new URLSearchParams(location.search).get("beat"));
+    if (route.view !== "home" && !findPlace(featuredId)) setFeaturedId(randomPlace().id);
     if (route.view === "home") {
       const linked = findPlace(new URLSearchParams(location.search).get("country") ?? "");
-      if (linked && linked.id !== today.id) {
+      if (linked) {
         router.replace(`${placeHref(linked.id)}${beat != null ? `?beat=${beat}` : ""}`);
         return;
       }
-      setChoice("today");
-      setCountry(today);
+      const arriving = previousPath.current !== null && previousPath.current !== pathname;
+      previousPath.current = pathname;
+      let place = findPlace(featuredId);
+      if (!place || (arriving && !keepFeatured.current)) {
+        place = randomPlace();
+        setFeaturedId(place.id);
+        setPack(usStates.some((state) => state.id === place.id) ? "state" : "country");
+      }
+      keepFeatured.current = false;
+      setCountry(place);
+      setChoice("featured");
       phaseRef.current = "setup";
       setPhase("setup");
-      if (beat != null) setChallenge({ countryId: today.id, score: beat });
+      if (beat != null) setChallenge({ countryId: place.id, score: beat });
       return;
     }
+    previousPath.current = pathname;
     if (route.view === "place" || route.view === "draw" || route.view === "result") {
       const place = findPlace(route.placeId);
       if (!place) {
@@ -224,9 +237,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
         return;
       }
       setCountry(place);
-      const isToday = place.id === today.id;
-      setChoice(isToday ? "today" : "custom");
-      setCustomId(isToday ? "" : place.id);
+      setChoice("custom");
+      setCustomId(place.id);
       if (usStates.some((state) => state.id === place.id)) setPack("state");
       const next = route.view === "draw" ? "drawing" : route.view === "result" ? "result" : "setup";
       phaseRef.current = next;
@@ -377,8 +389,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
     router.push(drawHref(playPlace.id));
   };
   const reset = () => {
-    const todayPlace = findPlace(todayId);
-    router.push(todayPlace && country.id !== todayPlace.id ? placeHref(country.id) : "/");
+    router.push(placeHref(country.id));
   };
   const save = async () => {
     setBusy(true);
@@ -431,14 +442,14 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       setBusy(false);
     }
   };
-  const today = findPlace(todayId);
+  const featured = findPlace(featuredId);
   const choices = pack === "state" ? usStates : countries;
   const needle = query.trim().toLowerCase();
   const matches = needle.length < 1
     ? []
     : choices.filter((place) => place.name.toLowerCase().includes(needle)).slice(0, 6);
   const customPlace = findPlace(customId);
-  const playPlace = choice === "today" ? today : customPlace;
+  const playPlace = choice === "featured" ? featured : customPlace;
   const challenged = challenge?.countryId === country.id ? challenge : null;
 
   return (
@@ -472,8 +483,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
           <section className="simple-landing" aria-label="Start a drawing round">
             <div className="intro">
               <h1>
-                I built this for my two-year-old to draw maps of countries and
-                discover the world. Then I thought: why should kids have all the fun?
+                I built this for my two-year-old to draw maps. Then I thought: why should kids have all the fun?
               </h1>
             </div>
             <div className="home-stage">
@@ -482,17 +492,19 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 <button
                   type="button"
                   className="day-choice today-choice"
-                  aria-pressed={choice === "today"}
-                  disabled={!today}
+                  aria-pressed={choice === "featured"}
+                  disabled={!featured}
                   onClick={() => {
                     setQuery("");
+                    keepFeatured.current = true;
+                    setChoice("featured");
+                    if (featured) setCountry(featured);
                     router.push("/");
                   }}
                 >
-                  {today && <PlaceMark value={today.flag} />}
+                  {featured && <PlaceMark value={featured.flag} />}
                   <span>
-                    <small>Today</small>
-                    <strong>{today?.name ?? "One moment…"}</strong>
+                    <strong>{featured?.name ?? "One moment…"}</strong>
                   </span>
                 </button>
                 <label className="place-search" htmlFor="place">
@@ -536,10 +548,6 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                           className={choice === "custom" && place.id === customId ? "is-target" : undefined}
                           onClick={() => {
                             setQuery(place.name);
-                            if (place.id === today?.id) {
-                              router.push("/");
-                              return;
-                            }
                             router.push(placeHref(place.id));
                           }}
                         >
@@ -554,7 +562,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
                 )}
                 {challenged && <p className="setup-note">Beat {challenged.score}%.</p>}
                 <button className="primary start-button" onClick={start} disabled={!ready || !playPlace}>
-                  <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : pack === "state" ? "Choose a state" : "Choose a country"}</IconLabel>
+                  <IconLabel icon={Pencil}>{playPlace ? `Draw ${playPlace.name}` : choice === "featured" ? "One moment…" : pack === "state" ? "Choose a state" : "Choose a country"}</IconLabel>
                 </button>
               </div>
               <Standings board={board} nickname={nickname} posting={posting} />
@@ -869,10 +877,10 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
       </main>
       <footer className="compact-footer">
         <nav className="creator-footer" aria-label="Creator links">
-          <a className="creator-name" href="https://ashok-marannan.vercel.app/" target="_blank" rel="noopener noreferrer">
-            Ashok <span>Marannan</span>
+          <a className="creator-name" href="https://www.linkedin.com/in/sowndarya-shanmugam/" target="_blank" rel="noopener noreferrer">
+            Soundarya <span>Sanmugam</span>
           </a>
-          <a className="creator-social" href="https://www.linkedin.com/in/ashokmarannan/" target="_blank" rel="noopener noreferrer" aria-label="Ashok Marannan on LinkedIn" title="LinkedIn">
+          <a className="creator-social" href="https://www.linkedin.com/in/sowndarya-shanmugam/" target="_blank" rel="noopener noreferrer" aria-label="Soundarya Sanmugam on LinkedIn" title="LinkedIn">
             <Linkedin size={18} aria-hidden="true" />
           </a>
         </nav>
