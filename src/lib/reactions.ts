@@ -128,8 +128,14 @@ export const revealResponses = groups.flatMap((group) => group.entries.map(([tit
   min: group.min, title, line, emoji: group.emoji,
 })));
 
-export function verdict(score: number, empty: boolean, variant = 0): Reaction {
-  if (empty) return { title: "An invisible country.", line: "The blank canvas is ready whenever you are. Give it a little country!", emoji: "👻" };
+export function verdict(score: number, empty: boolean, variant = 0, subject = "country"): Reaction {
+  if (empty) {
+    return {
+      title: `An invisible ${subject}.`,
+      line: `The blank canvas is ready whenever you are. Give it a little ${subject}!`,
+      emoji: "👻",
+    };
+  }
   const band = Math.min(9, Math.max(0, Math.floor((Number.isFinite(score) ? score : 0) / 10)));
   const index = Math.abs(Math.trunc(Number.isFinite(variant) ? variant : 0)) % 10;
   const { min: _, ...reaction } = revealResponses[band * 10 + index];

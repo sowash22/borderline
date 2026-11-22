@@ -37,3 +37,9 @@ export function findPlace(id: string) {
     ?? usStates.find((place) => place.id === id)
     ?? indianStates.find((place) => place.id === id);
 }
+
+export function subjectFor(place?: { id?: string; scope?: string } | null) {
+  if (place?.scope === "US state" || place?.scope === "Indian state") return "state";
+  if (/^S\d{2}$/.test(place?.id ?? "") || /^I-[A-Z]{2}$/.test(place?.id ?? "")) return "state";
+  return "country";
+}

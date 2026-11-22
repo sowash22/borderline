@@ -28,6 +28,7 @@ import {
   popularCountries,
   popularIndianStates,
   popularUsStates,
+  subjectFor,
   usStates,
   indianStates,
 } from "@/lib/places";
@@ -272,7 +273,8 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
   const keepFeatured = useRef(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const best = bests[country.id] ?? 0;
-  const judgement = verdict(score, !strokes.length, reactionIndex);
+  const kind = subjectFor(country);
+  const judgement = verdict(score, !strokes.length, reactionIndex, kind);
 
   useEffect(() => {
     try {
@@ -774,7 +776,7 @@ export default function Game({ initialCountryId }: { initialCountryId?: string }
               <div className="result-map">
                 <div className="result-map-top">
                   <span className="map-label">
-                    <Globe2 size={16} /> THE ACTUAL COUNTRY
+                    <Globe2 size={16} /> THE ACTUAL {kind.toUpperCase()}
                   </span>
                   <span>REALITY</span>
                 </div>

@@ -6,6 +6,7 @@ import {
   indianStates,
   popularIndianStates,
   popularUsStates,
+  subjectFor,
   usStates,
 } from "./places";
 import { shapeScore } from "./scoring";
@@ -43,6 +44,12 @@ test("Indian states include Tamil Nadu and skip tiny union territories", () => {
     const outline = state.rings.map((ring) => ring.map(([x, y]) => ({ x, y })));
     assert.equal(shapeScore(outline, outline), 100, state.name);
   }
+});
+
+test("states and countries use the matching subject word", () => {
+  assert.equal(subjectFor(usStates.find((state) => state.code === "CA")), "state");
+  assert.equal(subjectFor(indianStates.find((state) => state.code === "TN")), "state");
+  assert.equal(subjectFor(countries.find((place) => place.code === "IT")), "country");
 });
 
 test("the states picker leads with familiar US and Indian places", () => {

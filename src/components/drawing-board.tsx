@@ -81,7 +81,7 @@ export default function DrawingBoard({
         viewBox="0 0 600 400"
         aria-label={
           active
-            ? "Drawing area. Use your finger, mouse, or stylus to draw the country outline."
+            ? "Drawing area. Use your finger, mouse, or stylus to draw the outline."
             : "Blank drawing area"
         }
         role="img"
