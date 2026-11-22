@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import Game from "@/components/game";
 import "./globals.css";
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body>
         {children}
         <Game />
+        <Analytics />
       </body>
     </html>
   );
